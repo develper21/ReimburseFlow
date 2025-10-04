@@ -39,7 +39,6 @@ export default function UsersPage() {
         .from('users')
         .select(`
           *,
-          manager:users!users_manager_id_fkey(id, full_name),
           company:companies(id, name)
         `)
         .eq('company_id', profile.company_id)
@@ -288,7 +287,7 @@ function UserModal({
         toast.success('User updated successfully')
       } else {
         // Create new user (this would typically involve sending an invitation)
-        toast.info('User creation via invitation is not implemented in this demo')
+        toast('User creation via invitation is not implemented in this demo')
       }
 
       onSave()
