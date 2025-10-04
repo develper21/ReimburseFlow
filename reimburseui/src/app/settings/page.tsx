@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/Layout/DashboardLayout'
 import { useAuth } from '@/contexts/AuthContext'
+import { useCurrency } from '@/hooks/useCurrency'
 import { supabase } from '@/lib/supabase'
 import { Company } from '@/types/database'
 import { 
@@ -11,12 +12,14 @@ import {
   Mail, 
   Save,
   Globe,
-  DollarSign
+  DollarSign,
+  Loader2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function SettingsPage() {
   const { profile, user } = useAuth()
+  const { getAvailableCurrencies } = useCurrency()
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -26,6 +29,7 @@ export default function SettingsPage() {
     companyName: '',
     currency: 'USD',
   })
+  const [availableCurrencies, setAvailableCurrencies] = useState<string[]>([])
 
   useEffect(() => {
     if (profile) {
@@ -36,7 +40,10 @@ export default function SettingsPage() {
         email: profile.email,
       }))
     }
-  }, [profile])
+    // Load available currencies
+    const currencies = getAvailableCurrencies()
+    setAvailableCurrencies(currencies)
+  }, [profile, getAvailableCurrencies])
 
   const fetchCompany = async () => {
     if (!profile) return
@@ -216,9 +223,9 @@ export default function SettingsPage() {
                       onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
                       className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     >
-                      {currencies.map((currency) => (
-                        <option key={currency.code} value={currency.code}>
-                          {currency.code} - {currency.name}
+                      {availableCurrencies.map((currency) => (
+                        <option key={currency} value={currency}>
+                          {currency}
                         </option>
                       ))}
                     </select>

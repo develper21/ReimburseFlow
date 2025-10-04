@@ -78,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      // Try to fetch user profile with a simple query
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -88,6 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // If user profile doesn't exist yet, that's okay for new signups
         if (error.code === 'PGRST116') {
           console.log('User profile not found - this is normal for new signups')
+          setProfile(null)
+        } else if (error.message.includes('infinite recursion')) {
+          console.warn('RLS recursion detected - user profile fetch skipped')
           setProfile(null)
         } else {
           console.warn('Error fetching user profile:', error.message)
@@ -121,16 +125,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Supabase is not configured. Please set up your environment variables.')
     }
 
-    // Get currency based on country
-    const currencyMap: Record<string, string> = {
-      'US': 'USD',
-      'GB': 'GBP',
-      'EU': 'EUR',
-      'IN': 'INR',
-      'CA': 'CAD',
-      'AU': 'AUD',
+    // Get currency based on country using the API
+    let currency = 'USD' // fallback
+    try {
+      const { getCurrencyForCountry } = await import('@/lib/api/countries')
+      currency = await getCurrencyForCountry(country)
+    } catch (error) {
+      console.warn('Failed to get currency for country, using USD as fallback:', error)
+      // Fallback currency mapping
+      const currencyMap: Record<string, string> = {
+        'United States': 'USD',
+        'United Kingdom': 'GBP',
+        'European Union': 'EUR',
+        'India': 'INR',
+        'Canada': 'CAD',
+        'Australia': 'AUD',
+        'US': 'USD',
+        'GB': 'GBP',
+        'EU': 'EUR',
+        'IN': 'INR',
+        'CA': 'CAD',
+        'AU': 'AUD',
+      }
+      currency = currencyMap[country] || 'USD'
     }
-    const currency = currencyMap[country] || 'USD'
 
     const { data, error } = await supabase.auth.signUp({
       email,

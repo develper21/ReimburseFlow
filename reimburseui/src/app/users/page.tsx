@@ -244,7 +244,7 @@ function UserModal({
     managerId: user?.manager_id || '',
     isManagerApprover: user?.is_manager_approver || false,
   })
-  const [managers, setManagers] = useState<User[]>([])
+  const [managers, setManagers] = useState<{ id: string; full_name: string; role: string }[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
