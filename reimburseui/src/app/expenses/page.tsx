@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import DashboardLayout from '@/components/Layout/DashboardLayout'
 import { useAuth } from '@/contexts/AuthContext'
+import { useCurrency } from '@/hooks/useCurrency'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Expense } from '@/types/database'
@@ -15,21 +16,33 @@ import {
   XCircle,
   Eye,
   Edit,
-  Trash2
+  Trash2,
+  Loader2,
+  RefreshCw
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function ExpensesPage() {
   const { profile } = useAuth()
+  const { convert, format } = useCurrency()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
+  const [convertedAmounts, setConvertedAmounts] = useState<{ [key: string]: number }>({})
+  const [convertingExpenses, setConvertingExpenses] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (profile) {
       fetchExpenses()
     }
   }, [profile])
+
+  // Convert amounts when expenses change
+  useEffect(() => {
+    if (expenses.length > 0) {
+      convertExpenseAmounts()
+    }
+  }, [expenses])
 
   const fetchExpenses = async () => {
     if (!profile) return
@@ -48,6 +61,46 @@ export default function ExpensesPage() {
       toast.error('Failed to fetch expenses')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const convertExpenseAmounts = async () => {
+    const companyCurrency = 'USD' // This should come from company data
+    
+    for (const expense of expenses) {
+      if (expense.currency === companyCurrency) {
+        // No conversion needed
+        setConvertedAmounts(prev => ({
+          ...prev,
+          [expense.id]: expense.amount
+        }))
+        continue
+      }
+
+      // Mark as converting
+      setConvertingExpenses(prev => new Set(prev).add(expense.id))
+
+      try {
+        const conversion = await convert(expense.amount, expense.currency, companyCurrency)
+        setConvertedAmounts(prev => ({
+          ...prev,
+          [expense.id]: conversion.convertedAmount
+        }))
+      } catch (error) {
+        console.error(`Error converting expense ${expense.id}:`, error)
+        // Keep original amount if conversion fails
+        setConvertedAmounts(prev => ({
+          ...prev,
+          [expense.id]: expense.amount
+        }))
+      } finally {
+        // Remove from converting set
+        setConvertingExpenses(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(expense.id)
+          return newSet
+        })
+      }
     }
   }
 
@@ -125,13 +178,23 @@ export default function ExpensesPage() {
             <h1 className="text-2xl font-bold text-gray-900">My Expenses</h1>
             <p className="text-gray-600">Manage your expense claims</p>
           </div>
-          <Link
-            href="/expenses/new"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Expense
-          </Link>
+          <div className="flex space-x-3">
+            <button
+              onClick={convertExpenseAmounts}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              title="Refresh exchange rates"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Rates
+            </button>
+            <Link
+              href="/expenses/new"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Expense
+            </Link>
+          </div>
         </div>
 
         {/* Filters */}
@@ -196,9 +259,19 @@ export default function ExpensesPage() {
                     </div>
                     <div className="flex items-center space-x-4">
                       <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900">
-                          {formatCurrency(expense.amount, expense.currency)}
-                        </p>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-sm font-medium text-gray-900">
+                            {format(expense.amount, expense.currency)}
+                          </p>
+                          {convertingExpenses.has(expense.id) && (
+                            <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                          )}
+                        </div>
+                        {convertedAmounts[expense.id] && convertedAmounts[expense.id] !== expense.amount && (
+                          <p className="text-xs text-gray-500">
+                            ≈ {format(convertedAmounts[expense.id], 'USD')}
+                          </p>
+                        )}
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(expense.status)}`}>
                           {expense.status}
                         </span>
