@@ -53,6 +53,9 @@ export default function DashboardPage() {
   useEffect(() => {
     if (profile) {
       fetchDashboardData()
+    } else {
+      // If no profile, still set loading to false to show appropriate message
+      setLoading(false)
     }
   }, [profile])
 
@@ -169,6 +172,30 @@ export default function DashboardPage() {
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-white p-6 rounded-lg shadow h-32"></div>
             ))}
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // If no profile, show appropriate message
+  if (!profile) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <Users className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Profile Setup Required</h2>
+            <p className="text-gray-600 mb-4">
+              Your user profile is not set up yet. Please contact your administrator to complete your profile setup.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </button>
           </div>
         </div>
       </DashboardLayout>
