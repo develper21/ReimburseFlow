@@ -78,32 +78,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      // Try to fetch user profile with a simple query
+      // Try to fetch user profile with better error handling
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single()
+        .maybeSingle() // Use maybeSingle() instead of single() to handle missing records gracefully
 
       if (error) {
-        // If user profile doesn't exist yet, that's okay for new signups
-        if (error.code === 'PGRST116') {
-          console.log('User profile not found - this is normal for new signups')
-          setProfile(null)
-        } else if (error.message.includes('infinite recursion')) {
-          console.warn('RLS recursion detected - user profile fetch skipped')
-          setProfile(null)
+        // Handle specific error cases
+        if (error.code === 'PGRST116' || error.message.includes('406')) {
+          console.log('User profile not found - this is normal for new signups or users without profiles')
         } else {
           console.warn('Error fetching user profile:', error.message)
         }
+        setProfile(null)
+        setLoading(false)
+        return
+      }
+
+      if (!data) {
+        console.log('User profile not found - this is normal for new signups')
+        setProfile(null)
         setLoading(false)
         return
       }
       
       setProfile(data)
-    } catch (error) {
-      console.warn('Error fetching user profile:', error)
-      // Don't throw error, just log it and continue
+    } catch (error: any) {
+      console.warn('Error fetching user profile:', error?.message || error)
+      setProfile(null)
     } finally {
       setLoading(false)
     }
@@ -125,65 +129,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Supabase is not configured. Please set up your environment variables.')
     }
 
-    // Get currency based on country using the API
-    let currency = 'USD' // fallback
-    try {
-      const { getCurrencyForCountry } = await import('@/lib/api/countries')
-      currency = await getCurrencyForCountry(country)
-    } catch (error) {
-      console.warn('Failed to get currency for country, using USD as fallback:', error)
-      // Fallback currency mapping
-      const currencyMap: Record<string, string> = {
-        'United States': 'USD',
-        'United Kingdom': 'GBP',
-        'European Union': 'EUR',
-        'India': 'INR',
-        'Canada': 'CAD',
-        'Australia': 'AUD',
-        'US': 'USD',
-        'GB': 'GBP',
-        'EU': 'EUR',
-        'IN': 'INR',
-        'CA': 'CAD',
-        'AU': 'AUD',
-      }
-      currency = currencyMap[country] || 'USD'
+    // Call the server-side signup API
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        fullName,
+        companyName,
+        country,
+      }),
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to create account')
     }
 
-    const { data, error } = await supabase.auth.signUp({
+    // Sign in the user after successful signup
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
     if (error) throw error
-
-    if (data.user) {
-      // Create company
-      const { data: company, error: companyError } = await supabase
-        .from('companies')
-        .insert({
-          name: companyName,
-          currency,
-        })
-        .select()
-        .single()
-
-      if (companyError) throw companyError
-
-      // Create admin user
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: data.user.id,
-          email,
-          full_name: fullName,
-          role: 'admin',
-          company_id: company.id,
-          is_manager_approver: true,
-        })
-
-      if (userError) throw userError
-    }
   }
 
   const signOut = async () => {
