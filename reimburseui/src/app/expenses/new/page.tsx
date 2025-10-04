@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useDropzone } from 'react-dropzone'
 import DashboardLayout from '@/components/Layout/DashboardLayout'
 import { useAuth } from '@/contexts/AuthContext'
+import { useCurrency } from '@/hooks/useCurrency'
 import { supabase } from '@/lib/supabase'
 import { expenseSchema, type ExpenseInput } from '@/lib/validations'
 import { 
@@ -16,7 +17,9 @@ import {
   Calendar, 
   FileText, 
   Tag,
-  ArrowLeft
+  ArrowLeft,
+  Loader2,
+  RefreshCw
 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -33,20 +36,22 @@ const categories = [
   'Other'
 ]
 
-const currencies = [
-  { code: 'USD', name: 'US Dollar', symbol: '$' },
-  { code: 'EUR', name: 'Euro', symbol: '€' },
-  { code: 'GBP', name: 'British Pound', symbol: '£' },
-  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
-  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
-  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
-]
-
 export default function NewExpensePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [convertedAmount, setConvertedAmount] = useState<number | null>(null)
+  const [conversionRate, setConversionRate] = useState<number | null>(null)
+  const [isConverting, setIsConverting] = useState(false)
+  
   const { profile } = useAuth()
+  const { 
+    getAvailableCurrencies, 
+    convert, 
+    format, 
+    exchangeRates,
+    loading: currencyLoading 
+  } = useCurrency()
   const router = useRouter()
 
   const {
@@ -61,6 +66,41 @@ export default function NewExpensePage() {
       currency: 'USD',
     },
   })
+
+  const watchedAmount = watch('amount')
+  const watchedCurrency = watch('currency')
+  const availableCurrencies = getAvailableCurrencies()
+
+  // Convert amount to company currency when amount or currency changes
+  useEffect(() => {
+    const convertAmount = async () => {
+      if (!watchedAmount || !watchedCurrency || !profile?.company_id) return
+
+      setIsConverting(true)
+      try {
+        // Get company currency (assuming it's stored in profile or we can fetch it)
+        // For now, we'll use USD as default company currency
+        const companyCurrency = 'USD' // This should come from company data
+        
+        if (watchedCurrency === companyCurrency) {
+          setConvertedAmount(watchedAmount)
+          setConversionRate(1)
+        } else {
+          const conversion = await convert(watchedAmount, watchedCurrency, companyCurrency)
+          setConvertedAmount(conversion.convertedAmount)
+          setConversionRate(conversion.rate)
+        }
+      } catch (error) {
+        console.error('Error converting currency:', error)
+        setConvertedAmount(null)
+        setConversionRate(null)
+      } finally {
+        setIsConverting(false)
+      }
+    }
+
+    convertAmount()
+  }, [watchedAmount, watchedCurrency, profile?.company_id, convert])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
@@ -185,23 +225,62 @@ export default function NewExpensePage() {
                   <label htmlFor="currency" className="block text-sm font-medium text-gray-700">
                     Currency *
                   </label>
-                  <div className="mt-1">
+                  <div className="mt-1 relative">
                     <select
                       {...register('currency')}
-                      className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      disabled={currencyLoading}
+                      className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
-                      {currencies.map((currency) => (
-                        <option key={currency.code} value={currency.code}>
-                          {currency.code} - {currency.name}
+                      {availableCurrencies.map((currency) => (
+                        <option key={currency} value={currency}>
+                          {currency}
                         </option>
                       ))}
                     </select>
+                    {currencyLoading && (
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+                      </div>
+                    )}
                   </div>
                   {errors.currency && (
                     <p className="mt-1 text-sm text-red-600">{errors.currency.message}</p>
                   )}
                 </div>
               </div>
+
+              {/* Currency Conversion Display */}
+              {watchedAmount && watchedCurrency && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-blue-900">Currency Conversion</h4>
+                      <p className="text-sm text-blue-700">
+                        {format(watchedAmount, watchedCurrency)} → {isConverting ? (
+                          <span className="inline-flex items-center">
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            Converting...
+                          </span>
+                        ) : convertedAmount ? (
+                          format(convertedAmount, 'USD')
+                        ) : (
+                          'Unable to convert'
+                        )}
+                      </p>
+                      {conversionRate && conversionRate !== 1 && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          Exchange rate: 1 {watchedCurrency} = {conversionRate.toFixed(4)} USD
+                        </p>
+                      )}
+                    </div>
+                    {exchangeRates && (
+                      <div className="text-xs text-blue-600">
+                        <p>Last updated: {new Date(exchangeRates.date).toLocaleDateString()}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Category */}
               <div>

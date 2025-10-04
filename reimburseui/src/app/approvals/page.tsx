@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/Layout/DashboardLayout'
 import { useAuth } from '@/contexts/AuthContext'
+import { useCurrency } from '@/hooks/useCurrency'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { 
@@ -11,7 +12,9 @@ import {
   Clock, 
   User,
   FileText,
-  MessageSquare
+  MessageSquare,
+  Loader2,
+  RefreshCw
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -46,18 +49,28 @@ interface ExpenseWithDetails {
 
 export default function ApprovalsPage() {
   const { profile } = useAuth()
+  const { convert, format } = useCurrency()
   const [expenses, setExpenses] = useState<ExpenseWithDetails[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'pending' | 'all'>('pending')
   const [selectedExpense, setSelectedExpense] = useState<ExpenseWithDetails | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [convertedAmounts, setConvertedAmounts] = useState<{ [key: string]: number }>({})
+  const [converting, setConverting] = useState(false)
 
   useEffect(() => {
     if (profile && (profile.role === 'manager' || profile.role === 'admin')) {
       fetchApprovals()
     }
   }, [profile, filter])
+
+  // Convert amounts when expenses change
+  useEffect(() => {
+    if (expenses.length > 0) {
+      convertExpenseAmounts()
+    }
+  }, [expenses])
 
   const fetchApprovals = async () => {
     if (!profile) return

@@ -1,41 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { signUpSchema, type SignUpInput } from '@/lib/validations'
 import { useAuth } from '@/contexts/AuthContext'
+import { useCurrency } from '@/hooks/useCurrency'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff, Mail, Lock, User, Building, Globe } from 'lucide-react'
-
-const countries = [
-  { code: 'US', name: 'United States', currency: 'USD' },
-  { code: 'GB', name: 'United Kingdom', currency: 'GBP' },
-  { code: 'EU', name: 'European Union', currency: 'EUR' },
-  { code: 'IN', name: 'India', currency: 'INR' },
-  { code: 'CA', name: 'Canada', currency: 'CAD' },
-  { code: 'AU', name: 'Australia', currency: 'AUD' },
-]
+import { Eye, EyeOff, Mail, Lock, User, Building, Globe, Loader2 } from 'lucide-react'
 
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { signUp } = useAuth()
+  const { countries, loading: countriesLoading, error: countriesError } = useCurrency()
   const router = useRouter()
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    watch,
   } = useForm<SignUpInput>({
     resolver: zodResolver(signUpSchema),
   })
 
+  const selectedCountry = watch('country')
+
   const onSubmit = async (data: SignUpInput) => {
     setIsLoading(true)
     try {
+      // Get the currency for the selected country
+      const selectedCountryData = countries.find(c => c.name === data.country)
+      const currency = selectedCountryData?.currency || 'USD'
+      
       await signUp(data.email, data.password, data.fullName, data.companyName, data.country)
       toast.success('Account created successfully! Please check your email to verify your account.')
       router.push('/auth/signin')
@@ -162,22 +162,39 @@ export default function SignUpPage() {
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Globe className="h-5 w-5 text-gray-400" />
+                  {countriesLoading ? (
+                    <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+                  ) : (
+                    <Globe className="h-5 w-5 text-gray-400" />
+                  )}
                 </div>
                 <select
                   {...register('country')}
-                  className="appearance-none rounded-md relative block w-full pl-10 pr-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  disabled={countriesLoading}
+                  className="appearance-none rounded-md relative block w-full pl-10 pr-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
-                  <option value="">Select your country</option>
+                  <option value="">
+                    {countriesLoading ? 'Loading countries...' : 'Select your country'}
+                  </option>
                   {countries.map((country) => (
-                    <option key={country.code} value={country.code}>
+                    <option key={country.code} value={country.name}>
                       {country.name} ({country.currency})
                     </option>
                   ))}
                 </select>
               </div>
+              {countriesError && (
+                <p className="mt-1 text-sm text-yellow-600">
+                  Using fallback countries data. {countriesError}
+                </p>
+              )}
               {errors.country && (
                 <p className="mt-1 text-sm text-red-600">{errors.country.message}</p>
+              )}
+              {selectedCountry && (
+                <p className="mt-1 text-sm text-gray-500">
+                  Company currency will be set to: {countries.find(c => c.name === selectedCountry)?.currency || 'USD'}
+                </p>
               )}
             </div>
           </div>

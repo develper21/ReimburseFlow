@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/Layout/DashboardLayout'
 import { useAuth } from '@/contexts/AuthContext'
+import { useCurrency } from '@/hooks/useCurrency'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { 
@@ -13,7 +14,9 @@ import {
   DollarSign,
   TrendingUp,
   Users,
-  FileText
+  FileText,
+  Loader2,
+  RefreshCw
 } from 'lucide-react'
 import { Expense } from '@/types/database'
 
@@ -24,10 +27,14 @@ interface DashboardStats {
   rejectedExpenses: number
   totalAmount: number
   pendingAmount: number
+  totalAmountConverted: number
+  pendingAmountConverted: number
+  companyCurrency: string
 }
 
 export default function DashboardPage() {
   const { profile } = useAuth()
+  const { convert, format } = useCurrency()
   const [stats, setStats] = useState<DashboardStats>({
     totalExpenses: 0,
     pendingExpenses: 0,
@@ -35,9 +42,13 @@ export default function DashboardPage() {
     rejectedExpenses: 0,
     totalAmount: 0,
     pendingAmount: 0,
+    totalAmountConverted: 0,
+    pendingAmountConverted: 0,
+    companyCurrency: 'USD',
   })
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
+  const [converting, setConverting] = useState(false)
 
   useEffect(() => {
     if (profile) {
@@ -49,6 +60,15 @@ export default function DashboardPage() {
     if (!profile) return
 
     try {
+      // First get company currency
+      const { data: company } = await supabase
+        .from('companies')
+        .select('currency')
+        .eq('id', profile.company_id)
+        .single()
+
+      const companyCurrency = company?.currency || 'USD'
+
       // Fetch expenses based on user role
       let query = supabase
         .from('expenses')
@@ -88,6 +108,35 @@ export default function DashboardPage() {
           .filter(e => e.status === 'pending')
           .reduce((sum, e) => sum + e.amount, 0)
 
+        // Convert amounts to company currency
+        setConverting(true)
+        let totalAmountConverted = 0
+        let pendingAmountConverted = 0
+
+        for (const expense of expenses) {
+          try {
+            if (expense.currency === companyCurrency) {
+              totalAmountConverted += expense.amount
+              if (expense.status === 'pending') {
+                pendingAmountConverted += expense.amount
+              }
+            } else {
+              const conversion = await convert(expense.amount, expense.currency, companyCurrency)
+              totalAmountConverted += conversion.convertedAmount
+              if (expense.status === 'pending') {
+                pendingAmountConverted += conversion.convertedAmount
+              }
+            }
+          } catch (error) {
+            console.error('Error converting amount:', error)
+            // Use original amount if conversion fails
+            totalAmountConverted += expense.amount
+            if (expense.status === 'pending') {
+              pendingAmountConverted += expense.amount
+            }
+          }
+        }
+
         setStats({
           totalExpenses,
           pendingExpenses,
@@ -95,6 +144,9 @@ export default function DashboardPage() {
           rejectedExpenses,
           totalAmount,
           pendingAmount,
+          totalAmountConverted,
+          pendingAmountConverted,
+          companyCurrency,
         })
 
         // Get recent expenses (last 5)
@@ -104,6 +156,7 @@ export default function DashboardPage() {
       console.error('Error fetching dashboard data:', error)
     } finally {
       setLoading(false)
+      setConverting(false)
     }
   }
 
@@ -153,13 +206,28 @@ export default function DashboardPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back, {profile?.full_name}!
-          </h1>
-          <p className="text-gray-600">
-            Here's what's happening with your expenses today.
-          </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Welcome back, {profile?.full_name}!
+            </h1>
+            <p className="text-gray-600">
+              Here's what's happening with your expenses today.
+            </p>
+          </div>
+          <button
+            onClick={fetchDashboardData}
+            disabled={converting}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            title="Refresh data and exchange rates"
+          >
+            {converting ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            {converting ? 'Converting...' : 'Refresh'}
+          </button>
         </div>
 
         {/* Stats Cards */}
@@ -189,8 +257,14 @@ export default function DashboardPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Amount</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(stats.totalAmount, 'USD')}
+                  {format(stats.totalAmountConverted, stats.companyCurrency)}
                 </p>
+                {converting && (
+                  <p className="text-xs text-gray-500 flex items-center">
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    Converting currencies...
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -202,8 +276,14 @@ export default function DashboardPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Pending Amount</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(stats.pendingAmount, 'USD')}
+                  {format(stats.pendingAmountConverted, stats.companyCurrency)}
                 </p>
+                {converting && (
+                  <p className="text-xs text-gray-500 flex items-center">
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    Converting currencies...
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -245,8 +325,13 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-gray-900">
-                        {formatCurrency(expense.amount, expense.currency)}
+                        {format(expense.amount, expense.currency)}
                       </p>
+                      {expense.currency !== stats.companyCurrency && (
+                        <p className="text-xs text-gray-500">
+                          ≈ {format(expense.amount, stats.companyCurrency)}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
