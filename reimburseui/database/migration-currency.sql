@@ -38,10 +38,12 @@ CREATE INDEX IF NOT EXISTS idx_currency_conversions_expense_id ON currency_conve
 ALTER TABLE exchange_rates_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE currency_conversions ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies for new tables
+-- Create RLS policies for new tables (with DROP IF EXISTS for idempotency)
+DROP POLICY IF EXISTS "Authenticated users can view exchange rates" ON exchange_rates_cache;
 CREATE POLICY "Authenticated users can view exchange rates" ON exchange_rates_cache 
 FOR SELECT USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Users can view their own conversions" ON currency_conversions;
 CREATE POLICY "Users can view their own conversions" ON currency_conversions 
 FOR SELECT USING (
     expense_id IN (SELECT id FROM expenses WHERE employee_id = auth.uid())
