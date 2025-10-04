@@ -305,12 +305,12 @@ function WorkflowModal({
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, full_name, email, role')
+        .select('id, full_name, email, role, company_id, manager_id, is_manager_approver, created_at, updated_at')
         .eq('company_id', companyId)
         .in('role', ['manager', 'admin'])
 
       if (error) throw error
-      setAvailableApprovers(data || [])
+      setAvailableApprovers(data as User[] || [])
     } catch (error) {
       console.error('Error fetching approvers:', error)
     }
