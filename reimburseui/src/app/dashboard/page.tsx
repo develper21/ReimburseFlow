@@ -231,21 +231,21 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               Welcome back, {profile?.full_name}!
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mt-1">
               Here's what's happening with your expenses today.
             </p>
           </div>
           <button
             onClick={fetchDashboardData}
             disabled={converting}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors duration-200"
             title="Refresh data and exchange rates"
           >
             {converting ? (
@@ -257,16 +257,16 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Stats Cards - First Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {statCards.map((stat) => (
-            <div key={stat.title} className="bg-white p-6 rounded-lg shadow">
+            <div key={stat.title} className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center">
-                <div className={`p-3 rounded-full ${stat.color}`}>
+                <div className={`p-3 rounded-full ${stat.color} flex-shrink-0`}>
                   <stat.icon className="h-6 w-6 text-white" />
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                <div className="ml-4 min-w-0">
+                  <p className="text-sm font-medium text-gray-600 truncate">{stat.title}</p>
                   <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                 </div>
               </div>
@@ -274,20 +274,20 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Amount Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow">
+        {/* Amount Summary - Second Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-green-500">
+              <div className="p-3 rounded-full bg-green-500 flex-shrink-0">
                 <DollarSign className="h-6 w-6 text-white" />
               </div>
-              <div className="ml-4">
+              <div className="ml-4 min-w-0">
                 <p className="text-sm font-medium text-gray-600">Total Amount</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {format(stats.totalAmountConverted, stats.companyCurrency)}
                 </p>
                 {converting && (
-                  <p className="text-xs text-gray-500 flex items-center">
+                  <p className="text-xs text-gray-500 flex items-center mt-1">
                     <Loader2 className="h-3 w-3 animate-spin mr-1" />
                     Converting currencies...
                   </p>
@@ -295,18 +295,18 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-yellow-500">
+              <div className="p-3 rounded-full bg-yellow-500 flex-shrink-0">
                 <TrendingUp className="h-6 w-6 text-white" />
               </div>
-              <div className="ml-4">
+              <div className="ml-4 min-w-0">
                 <p className="text-sm font-medium text-gray-600">Pending Amount</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {format(stats.pendingAmountConverted, stats.companyCurrency)}
                 </p>
                 {converting && (
-                  <p className="text-xs text-gray-500 flex items-center">
+                  <p className="text-xs text-gray-500 flex items-center mt-1">
                     <Loader2 className="h-3 w-3 animate-spin mr-1" />
                     Converting currencies...
                   </p>
@@ -317,26 +317,26 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Expenses */}
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">Recent Expenses</h3>
           </div>
           <div className="divide-y divide-gray-200">
             {recentExpenses.length === 0 ? (
-              <div className="px-6 py-8 text-center text-gray-500">
+              <div className="px-6 py-12 text-center">
                 <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>No expenses found</p>
+                <p className="text-gray-500">No expenses found</p>
               </div>
             ) : (
               recentExpenses.map((expense) => (
-                <div key={expense.id} className="px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center">
-                        <h4 className="text-sm font-medium text-gray-900">
+                <div key={expense.id} className="px-6 py-4 hover:bg-gray-50 transition-colors duration-150">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2">
+                        <h4 className="text-sm font-medium text-gray-900 truncate">
                           {expense.description}
                         </h4>
-                        <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full self-start ${
                           expense.status === 'approved' 
                             ? 'bg-green-100 text-green-800'
                             : expense.status === 'rejected'
@@ -346,11 +346,11 @@ export default function DashboardPage() {
                           {expense.status}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 mt-1">
                         {expense.category} • {formatDate(expense.expense_date)}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right sm:ml-4">
                       <p className="text-sm font-medium text-gray-900">
                         {format(expense.amount, expense.currency)}
                       </p>
