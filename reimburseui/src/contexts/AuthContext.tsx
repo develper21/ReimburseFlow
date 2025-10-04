@@ -23,18 +23,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // If Supabase is not configured, skip auth initialization
     if (!isSupabaseConfigured()) {
+      console.warn('Supabase not configured, skipping auth initialization')
       setLoading(false)
       return
     }
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.warn('Error getting session:', error.message)
+        setLoading(false)
+        return
+      }
+      
       setUser(session?.user ?? null)
       if (session?.user) {
         fetchUserProfile(session.user.id)
       } else {
         setLoading(false)
       }
+    }).catch((error) => {
+      console.warn('Error in getSession:', error)
+      setLoading(false)
     })
 
     // Listen for auth changes
@@ -50,21 +60,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      try {
+        subscription.unsubscribe()
+      } catch (error) {
+        console.warn('Error unsubscribing from auth:', error)
+      }
+    }
   }, [setUser, setProfile, setLoading])
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      // Check if Supabase is properly configured before making database calls
+      if (!isSupabaseConfigured()) {
+        console.warn('Supabase not configured, skipping user profile fetch')
+        setLoading(false)
+        return
+      }
+
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single()
 
-      if (error) throw error
+      if (error) {
+        // If user profile doesn't exist yet, that's okay for new signups
+        if (error.code === 'PGRST116') {
+          console.log('User profile not found - this is normal for new signups')
+          setProfile(null)
+        } else {
+          console.warn('Error fetching user profile:', error.message)
+        }
+        setLoading(false)
+        return
+      }
+      
       setProfile(data)
     } catch (error) {
-      console.error('Error fetching user profile:', error)
+      console.warn('Error fetching user profile:', error)
+      // Don't throw error, just log it and continue
     } finally {
       setLoading(false)
     }
@@ -135,12 +170,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     if (!isSupabaseConfigured()) {
+      console.warn('Supabase not configured, signing out locally')
       storeSignOut()
       return
     }
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
-    storeSignOut()
+    
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.warn('Error signing out:', error.message)
+      }
+    } catch (error) {
+      console.warn('Error in signOut:', error)
+    } finally {
+      storeSignOut()
+    }
   }
 
   return (
