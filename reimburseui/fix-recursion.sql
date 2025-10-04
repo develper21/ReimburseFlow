@@ -21,6 +21,10 @@ DROP POLICY IF EXISTS "Managers can view approvals for their team's expenses" ON
 DROP POLICY IF EXISTS "Admins can view all approvals in their company" ON expense_approvals;
 DROP POLICY IF EXISTS "Approvers can update their own approvals" ON expense_approvals;
 
+-- Drop the conflicting policies
+DROP POLICY IF EXISTS "Authenticated users can view companies" ON companies;
+DROP POLICY IF EXISTS "Authenticated users can view workflows" ON approval_workflows;
+
 -- Create SIMPLE, SAFE policies that don't cause recursion
 
 -- Users table - only allow users to see their own data
