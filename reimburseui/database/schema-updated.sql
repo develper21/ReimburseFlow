@@ -2,7 +2,7 @@
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create tables
+-- Create tables (IF NOT EXISTS for safety)
 CREATE TABLE IF NOT EXISTS companies (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -204,10 +204,12 @@ CREATE POLICY "Approvers can update their own approvals" ON expense_approvals FO
 
 -- RLS for exchange rates cache (read-only for authenticated users)
 ALTER TABLE exchange_rates_cache ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated users can view exchange rates" ON exchange_rates_cache;
 CREATE POLICY "Authenticated users can view exchange rates" ON exchange_rates_cache FOR SELECT USING (auth.role() = 'authenticated');
 
 -- RLS for currency conversions (users can view their own conversions)
 ALTER TABLE currency_conversions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own conversions" ON currency_conversions;
 CREATE POLICY "Users can view their own conversions" ON currency_conversions FOR SELECT USING (
     expense_id IN (SELECT id FROM expenses WHERE employee_id = auth.uid())
 );
