@@ -15,7 +15,6 @@ import {
   Menu,
   X,
   CheckCircle,
-  Clock,
   UserCheck,
 } from 'lucide-react'
 
@@ -42,54 +41,41 @@ export default function Sidebar() {
   }
 
   const filteredNavigation = navigation.filter((item) => {
-    if (!profile) return false
-    
-    // Admin can see everything
-    if (profile.role === 'admin') return true
-    
-    // Manager can see dashboard, expenses, approvals, settings
+    if (!profile) return false    
+    if (profile.role === 'admin') return true    
     if (profile.role === 'manager') {
       return ['dashboard', 'expenses', 'approvals', 'settings'].includes(
         item.href.split('/')[1]
       )
-    }
-    
-    // Employee can see dashboard, expenses, settings
+    }    
     if (profile.role === 'employee') {
       return ['dashboard', 'expenses', 'settings'].includes(
         item.href.split('/')[1]
       )
-    }
-    
+    }    
     return false
   })
 
   return (
     <>
-      {/* Mobile menu button */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 rounded-md bg-white shadow-lg border border-gray-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-200"
-        >
+          className="p-2 rounded-md bg-white shadow-lg border border-gray-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-200">
           {isOpen ? <X className="h-6 w-6 text-gray-600" /> : <Menu className="h-6 w-6 text-gray-600" />}
         </button>
       </div>
 
-      {/* Sidebar */}
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-xl border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 lg:shadow-lg',
+          'fixed inset-y-0 left-0 z-40 w-64 h-screen bg-white shadow-xl border-r border-gray-200 overflow-y-auto transform transition-transform duration-300 ease-in-out lg:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-      >
+        )}>
         <div className="flex flex-col h-full">
-          {/* Logo */}
           <div className="flex items-center justify-center h-16 px-4 bg-indigo-600">
             <h1 className="text-xl font-bold text-white">ExpenseFlow</h1>
           </div>
 
-          {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-2">
             {filteredNavigation.map((item) => {
               const isActive = pathname === item.href
@@ -103,8 +89,7 @@ export default function Sidebar() {
                       ? 'bg-indigo-100 text-indigo-700'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   )}
-                  onClick={() => setIsOpen(false)}
-                >
+                  onClick={() => setIsOpen(false)}>
                   <item.icon className="mr-3 h-5 w-5" />
                   {item.name}
                 </Link>
@@ -112,7 +97,6 @@ export default function Sidebar() {
             })}
           </nav>
 
-          {/* User profile */}
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -133,8 +117,7 @@ export default function Sidebar() {
               <button
                 onClick={handleSignOut}
                 className="ml-2 p-1 text-gray-400 hover:text-gray-600"
-                title="Sign out"
-              >
+                title="Sign out">
                 <LogOut className="h-4 w-4" />
               </button>
             </div>
@@ -142,7 +125,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Overlay for mobile */}
       {isOpen && (
         <div
           className="fixed inset-0 z-30 bg-black bg-opacity-50 lg:hidden"
