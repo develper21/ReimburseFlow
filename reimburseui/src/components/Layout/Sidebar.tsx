@@ -68,11 +68,11 @@ export default function Sidebar() {
 
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-64 h-screen bg-white shadow-xl border-r border-gray-200 overflow-y-auto transform transition-transform duration-300 ease-in-out lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 w-64 h-screen bg-[#1F1E1D] shadow-xl border-r border-gray-200 overflow-y-auto transform transition-transform duration-300 ease-in-out lg:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}>
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-center h-16 px-4 bg-indigo-600">
+          <div className="flex items-center justify-center h-16 px-4 bg-[#D97757]">
             <h1 className="text-xl font-bold text-white">ExpenseFlow</h1>
           </div>
 
