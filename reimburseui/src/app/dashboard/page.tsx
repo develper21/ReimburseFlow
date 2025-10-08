@@ -235,10 +235,10 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-white">
               Welcome back, {profile?.full_name}!
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-white mt-1">
               Here's what's happening with your expenses today.
             </p>
           </div>
