@@ -32,7 +32,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#262624]">
       <Sidebar />
       <div className="lg:pl-64">
         <main className="py-4 sm:py-6">
