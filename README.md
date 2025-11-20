@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # ExpenseFlow - Expense Management System
 
 A modern, full-stack expense management web application built with Next.js, Supabase, and TailwindCSS. This system provides comprehensive expense tracking, approval workflows, and user management capabilities.
@@ -136,12 +135,10 @@ cd expenseura
 ```
 
 2. Install dependencies:
->>>>>>> 6e8055c (add whole project with new ui)
 ```bash
 npm install
 ```
 
-<<<<<<< HEAD
 ### 3. Set up Supabase
 
 1. Create a new project at [supabase.com](https://supabase.com)
@@ -170,7 +167,6 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ### 6. Run the Application
 
-=======
 3. Create environment file:
 ```bash
 cp .env.example .env
@@ -185,12 +181,9 @@ VITE_RESTCOUNTRIES_URL=https://restcountries.com/v3.1/all?fields=name,currencies
 ```
 
 5. Start the development server:
->>>>>>> 6e8055c (add whole project with new ui)
 ```bash
 npm run dev
 ```
-
-<<<<<<< HEAD
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 🏗 Project Structure
@@ -631,4 +624,3 @@ For issues and questions:
 - Tesseract.js for OCR capabilities
 - TailwindCSS for the styling system
 - React Query for data management
->>>>>>> 6e8055c (add whole project with new ui)
