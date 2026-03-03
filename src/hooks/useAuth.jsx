@@ -68,15 +68,21 @@ export const AuthProvider = ({ children }) => {
 
   const signUp = async (email, password, fullName, companyName, country, baseCurrency) => {
     try {
+      console.log('Starting signup process...')
+      console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL)
+      
       // Sign up user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password
       })
 
+      console.log('Auth response:', { authData, authError })
+
       if (authError) throw authError
 
       const userId = authData.user.id
+      console.log('User created with ID:', userId)
 
       // Create company
       const { data: companyData, error: companyError } = await supabase
@@ -89,6 +95,8 @@ export const AuthProvider = ({ children }) => {
         .select()
         .single()
 
+      console.log('Company response:', { companyData, companyError })
+
       if (companyError) throw companyError
 
       // Create profile
@@ -100,6 +108,8 @@ export const AuthProvider = ({ children }) => {
           role: 'admin',
           company_id: companyData.id
         }])
+
+      console.log('Profile response:', { profileError })
 
       if (profileError) throw profileError
 
