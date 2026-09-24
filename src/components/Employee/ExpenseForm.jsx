@@ -1,36 +1,42 @@
 import { useState, useEffect } from 'react'
-import { Upload, Loader, FileText, X } from 'lucide-react'
+import { Upload, Loader2, FileText, X, Sparkles, Check, DollarSign, Calendar, Tag, CreditCard } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useCreateExpense, useUploadReceipt } from '../../hooks/useExpenses'
 import { useApprovalRules } from '../../hooks/useApprovals'
 import { parseReceipt } from '../../lib/ocr'
-import { CURRENCIES } from '../../lib/currency'
+import { SUPPORTED_CURRENCIES, formatCurrency } from '../../lib/currency'
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '../../lib/constants'
 
-export default function ExpenseForm({ onSuccess }) {
+export default function ExpenseForm({ onSuccess, onCancel }) {
   const { profile, company } = useAuth()
   const createExpense = useCreateExpense()
   const uploadReceipt = useUploadReceipt()
-  const { data: approvalRules } = useApprovalRules(company?.id)
+  const { data: approvalRules } = useApprovalRules(company?._id || company?.id)
 
   const [file, setFile] = useState(null)
   const [filePreview, setFilePreview] = useState(null)
   const [ocrProcessing, setOcrProcessing] = useState(false)
-  const [ocrData, setOcrData] = useState(null)
+  const [ocrSuccess, setOcrSuccess] = useState(false)
+  const [error, setError] = useState('')
+
+  const baseCurr = company?.baseCurrency || company?.base_currency || 'USD'
 
   const [formData, setFormData] = useState({
     description: '',
-    category: 'Other',
+    category: EXPENSE_CATEGORIES[0] || 'Travel & Lodging',
     dateOfExpense: new Date().toISOString().split('T')[0],
     amount: '',
-    currency: company?.base_currency || 'USD',
-    paidBy: 'Personal Card',
-    approvalRuleId: ''
+    currency: baseCurr,
+    paidBy: PAYMENT_METHODS[0] || 'Personal Card',
+    approvalRuleId: '',
+    merchant: '',
+    department: profile?.department || 'Engineering'
   })
 
   useEffect(() => {
     if (approvalRules && approvalRules.length > 0 && !formData.approvalRuleId) {
-      setFormData(prev => ({ ...prev, approvalRuleId: approvalRules[0].id }))
+      const defaultRule = approvalRules.find((r) => r.isDefault) || approvalRules[0]
+      setFormData((prev) => ({ ...prev, approvalRuleId: defaultRule._id || defaultRule.id }))
     }
   }, [approvalRules])
 
@@ -39,29 +45,31 @@ export default function ExpenseForm({ onSuccess }) {
     if (!selectedFile) return
 
     setFile(selectedFile)
+    setOcrSuccess(false)
 
-    // Create preview
+    // Generate local preview
     const reader = new FileReader()
     reader.onloadend = () => {
       setFilePreview(reader.result)
     }
     reader.readAsDataURL(selectedFile)
 
-    // Process OCR
+    // Execute OCR extraction
     setOcrProcessing(true)
     try {
       const parsed = await parseReceipt(selectedFile)
-      setOcrData(parsed)
-
-      // Auto-fill form if OCR found data
-      setFormData(prev => ({
-        ...prev,
-        amount: parsed.amount || prev.amount,
-        dateOfExpense: parsed.date || prev.dateOfExpense,
-        description: parsed.merchant || prev.description
-      }))
-    } catch (error) {
-      console.error('OCR error:', error)
+      if (parsed && (parsed.amount || parsed.merchant || parsed.date)) {
+        setOcrSuccess(true)
+        setFormData((prev) => ({
+          ...prev,
+          amount: parsed.amount ? String(parsed.amount) : prev.amount,
+          dateOfExpense: parsed.date || prev.dateOfExpense,
+          description: parsed.merchant ? `Receipt from ${parsed.merchant}` : prev.description,
+          merchant: parsed.merchant || prev.merchant
+        }))
+      }
+    } catch (err) {
+      console.warn('OCR note:', err.message)
     } finally {
       setOcrProcessing(false)
     }
@@ -70,70 +78,51 @@ export default function ExpenseForm({ onSuccess }) {
   const handleRemoveFile = () => {
     setFile(null)
     setFilePreview(null)
-    setOcrData(null)
+    setOcrSuccess(false)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
+
+    if (!formData.description || !formData.amount) {
+      setError('Please provide a description and amount')
+      return
+    }
 
     try {
-      // Validate required fields
-      if (!formData.description || !formData.amount) {
-        alert('Please fill in all required fields')
-        return
-      }
+      let receiptPath = filePreview || null
 
-      // Upload receipt first
-      let receiptPath = null
+      // Upload file to Express API if present
       if (file) {
         try {
-          const uploadResult = await uploadReceipt.mutateAsync({
-            file,
-            userId: profile.id
-          })
-          receiptPath = uploadResult
-        } catch (uploadError) {
-          console.error('Receipt upload error:', uploadError)
-          alert('Failed to upload receipt. Please try again.')
-          return
+          const uploadedUrl = await uploadReceipt.mutateAsync({ file })
+          receiptPath = uploadedUrl
+        } catch (uploadErr) {
+          console.warn('Backend file upload fallback to base64 preview:', uploadErr.message)
+          receiptPath = filePreview
         }
       }
 
-      // Create expense
       await createExpense.mutateAsync({
-        companyId: company.id,
-        userId: profile.id,
         description: formData.description,
         category: formData.category,
         dateOfExpense: formData.dateOfExpense,
         amount: parseFloat(formData.amount),
         currency: formData.currency,
-        baseCurrency: company.base_currency,
+        baseCurrency: baseCurr,
         paidBy: formData.paidBy,
         receiptPath,
-        approvalRuleId: formData.approvalRuleId || null
+        receiptName: file ? file.name : null,
+        approvalRuleId: formData.approvalRuleId || null,
+        merchant: formData.merchant,
+        department: formData.department
       })
 
-      // Reset form
-      setFormData({
-        description: '',
-        category: 'Other',
-        dateOfExpense: new Date().toISOString().split('T')[0],
-        amount: '',
-        currency: company.base_currency,
-        paidBy: 'Personal Card',
-        approvalRuleId: approvalRules?.[0]?.id || ''
-      })
-      setFile(null)
-      setFilePreview(null)
-      setOcrData(null)
-
-      alert('Expense created successfully!')
       if (onSuccess) onSuccess()
-    } catch (error) {
-      console.error('Error creating expense:', error)
-      const errorMessage = error.message || 'Failed to create expense. Please try again.'
-      alert(`Error: ${errorMessage}`)
+    } catch (err) {
+      console.error('Submit expense error:', err)
+      setError(err.message || 'Failed to submit expense. Please check your connection.')
     }
   }
 
@@ -141,212 +130,251 @@ export default function ExpenseForm({ onSuccess }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Receipt Upload */}
+      {error && (
+        <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-3.5 text-xs text-rose-300">
+          {error}
+        </div>
+      )}
+
+      {/* Appwrite Receipt Dropzone */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Receipt
+        <label className="block text-xs font-mono font-medium text-zinc-300 uppercase tracking-wider mb-2">
+          Receipt / Proof of Payment (Auto-OCR Scanner)
         </label>
-        
+
         {!file ? (
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary-400 transition-colors">
+          <div className="relative border-2 border-dashed border-white/10 hover:border-[#fd366e]/50 rounded-2xl p-6 text-center transition-all bg-white/[0.02] hover:bg-white/[0.04] group cursor-pointer">
             <input
               type="file"
               accept="image/*,.pdf"
               onChange={handleFileChange}
-              className="hidden"
-              id="receipt-upload"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              id="receipt-file-input"
             />
-            <label htmlFor="receipt-upload" className="cursor-pointer">
-              <Upload className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="mt-2 text-sm text-gray-600">
-                Click to upload receipt
+            <div className="flex flex-col items-center">
+              <div className="h-12 w-12 rounded-xl bg-white/[0.05] border border-white/10 group-hover:border-[#fd366e]/40 flex items-center justify-center text-zinc-400 group-hover:text-[#fd366e] transition-colors mb-3">
+                <Upload className="h-5 w-5" />
+              </div>
+              <p className="text-sm font-medium text-white">
+                Drag receipt here, or <span className="text-[#fd366e] underline">browse files</span>
               </p>
-              <p className="text-xs text-gray-500 mt-1">
-                PNG, JPG, PDF up to 10MB
+              <p className="text-xs text-zinc-500 mt-1 font-mono">
+                JPEG, PNG, WebP, PDF • Intelligent OCR Auto-Extraction
               </p>
-            </label>
+            </div>
           </div>
         ) : (
-          <div className="relative border border-gray-300 rounded-lg p-4">
+          <div className="relative rounded-2xl border border-white/10 bg-[#131316] p-4 flex flex-col sm:flex-row items-center gap-4">
             <button
               type="button"
               onClick={handleRemoveFile}
-              className="absolute top-2 right-2 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200"
+              className="absolute top-2 right-2 p-1 rounded-lg bg-zinc-800 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition"
             >
               <X className="h-4 w-4" />
             </button>
 
-            {filePreview && file.type.startsWith('image/') ? (
+            {filePreview && file.type?.startsWith('image/') ? (
               <img
                 src={filePreview}
-                alt="Receipt preview"
-                className="max-h-48 mx-auto rounded"
+                alt="Receipt"
+                className="h-28 w-28 object-cover rounded-xl border border-white/10 shrink-0"
               />
             ) : (
-              <div className="flex items-center justify-center py-8">
-                <FileText className="h-12 w-12 text-gray-400" />
-                <span className="ml-2 text-sm text-gray-600">{file.name}</span>
+              <div className="h-28 w-28 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center shrink-0">
+                <FileText className="h-8 w-8 text-zinc-500" />
               </div>
             )}
 
-            {ocrProcessing && (
-              <div className="mt-2 flex items-center justify-center text-sm text-primary-600">
-                <Loader className="animate-spin h-4 w-4 mr-2" />
-                Processing receipt...
-              </div>
-            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-white truncate">{file.name}</p>
+              <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
+                {(file.size / 1024).toFixed(1)} KB • {file.type || 'Document'}
+              </p>
 
-            {ocrData && !ocrProcessing && (
-              <div className="mt-2 text-xs text-green-600 text-center">
-                ✓ Receipt processed - fields auto-filled
-              </div>
-            )}
+              {ocrProcessing && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-[#fd366e] font-mono">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>OCR Scanning receipt in background...</span>
+                </div>
+              )}
+
+              {ocrSuccess && (
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400 font-mono">
+                  <Check className="h-3.5 w-3.5" />
+                  <span>Auto-extracted amount and merchant details!</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Description */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description *
-        </label>
-        <input
-          type="text"
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          placeholder="e.g., Team lunch at restaurant"
-        />
-      </div>
-
-      {/* Category */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Category *
-        </label>
-        <select
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-          value={formData.category}
-          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-        >
-          {EXPENSE_CATEGORIES.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Date */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Date of Expense *
-        </label>
-        <input
-          type="date"
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-          value={formData.dateOfExpense}
-          onChange={(e) => setFormData({ ...formData, dateOfExpense: e.target.value })}
-        />
-      </div>
-
-      {/* Amount and Currency */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Expense Details Inputs */}
+      <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Amount *
+          <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+            Expense Description *
           </label>
           <input
-            type="number"
-            step="0.01"
+            type="text"
             required
-            min="0"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            value={formData.amount}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-            placeholder="0.00"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            placeholder="e.g. Flight to Developer Summit NYC"
+            className="aw-input w-full px-4 py-2.5 text-sm"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Currency *
-          </label>
-          <select
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            value={formData.currency}
-            onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-          >
-            {CURRENCIES.map(curr => (
-              <option key={curr.code} value={curr.code}>
-                {curr.code} - {curr.symbol}
-              </option>
-            ))}
-          </select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+              Amount *
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-500">
+                <DollarSign className="h-4 w-4" />
+              </div>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                placeholder="0.00"
+                className="aw-input w-full pl-10 pr-4 py-2.5 text-sm font-mono font-medium"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+              Currency
+            </label>
+            <select
+              value={formData.currency}
+              onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+              className="aw-input w-full px-3 py-2.5 text-sm bg-[#131316] font-mono"
+            >
+              {SUPPORTED_CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code} className="bg-[#131316]">
+                  {c.code} ({c.symbol}) - {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
 
-      {/* Paid By */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Paid By *
-        </label>
-        <select
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-          value={formData.paidBy}
-          onChange={(e) => setFormData({ ...formData, paidBy: e.target.value })}
-        >
-          {PAYMENT_METHODS.map(method => (
-            <option key={method} value={method}>{method}</option>
-          ))}
-        </select>
-      </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+              Category
+            </label>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className="aw-input w-full px-3 py-2.5 text-sm bg-[#131316]"
+            >
+              {EXPENSE_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat} className="bg-[#131316]">
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      {/* Approval Rule */}
-      {approvalRules && approvalRules.length > 0 && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Approval Rule *
-          </label>
-          <select
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            value={formData.approvalRuleId}
-            onChange={(e) => setFormData({ ...formData, approvalRuleId: e.target.value })}
-          >
-            {approvalRules.map(rule => (
-              <option key={rule.id} value={rule.id}>
-                {rule.name}
-              </option>
-            ))}
-          </select>
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+              Date of Expense
+            </label>
+            <input
+              type="date"
+              required
+              value={formData.dateOfExpense}
+              onChange={(e) => setFormData({ ...formData, dateOfExpense: e.target.value })}
+              className="aw-input w-full px-4 py-2.5 text-sm font-mono"
+            />
+          </div>
         </div>
-      )}
 
-      {/* Submit Button */}
-      <button
-        type="submit"
-        disabled={isLoading || !formData.approvalRuleId}
-        className="w-full bg-primary-600 text-white py-2 px-4 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-      >
-        {isLoading ? (
-          <>
-            <Loader className="animate-spin h-4 w-4 mr-2" />
-            Submitting...
-          </>
-        ) : (
-          'Submit Expense'
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+              Payment Method
+            </label>
+            <select
+              value={formData.paidBy}
+              onChange={(e) => setFormData({ ...formData, paidBy: e.target.value })}
+              className="aw-input w-full px-3 py-2.5 text-sm bg-[#131316]"
+            >
+              {PAYMENT_METHODS.map((pm) => (
+                <option key={pm} value={pm} className="bg-[#131316]">
+                  {pm}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+              Merchant / Vendor Name
+            </label>
+            <input
+              type="text"
+              value={formData.merchant}
+              onChange={(e) => setFormData({ ...formData, merchant: e.target.value })}
+              placeholder="e.g. Uber, Delta, AWS"
+              className="aw-input w-full px-4 py-2.5 text-sm"
+            />
+          </div>
+        </div>
+
+        {approvalRules && approvalRules.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+              Approval Policy Workflow
+            </label>
+            <select
+              value={formData.approvalRuleId}
+              onChange={(e) => setFormData({ ...formData, approvalRuleId: e.target.value })}
+              className="aw-input w-full px-3 py-2.5 text-sm bg-[#131316]"
+            >
+              {approvalRules.map((rule) => (
+                <option key={rule._id || rule.id} value={rule._id || rule.id} className="bg-[#131316]">
+                  {rule.name} ({rule.ruleType} - {rule.percentageRequired}% required)
+                </option>
+              ))}
+            </select>
+          </div>
         )}
-      </button>
+      </div>
 
-      {!approvalRules || approvalRules.length === 0 && (
-        <p className="text-sm text-amber-600 text-center">
-          No approval rules configured. Please contact your admin.
-        </p>
-      )}
+      {/* Action Buttons */}
+      <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/[0.08]">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="aw-btn-secondary px-4 py-2.5 text-xs"
+          >
+            Cancel
+          </button>
+        )}
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="aw-btn-primary px-6 py-2.5 text-xs font-semibold shadow-aw-button"
+        >
+          {isLoading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Submitting Expense...</span>
+            </div>
+          ) : (
+            <span>Submit for Approval</span>
+          )}
+        </button>
+      </div>
     </form>
   )
 }
