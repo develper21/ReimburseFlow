@@ -8,7 +8,10 @@
     "server": "node --watch server/src/server.js",
     "server:start": "node server/src/server.js",
     "backend:install": "npm --prefix server install",
+    "backend:build": "npm --prefix server install",
+    "backend:start": "node server/src/server.js",
     "build": "vite build",
+    "build:all": "npm run build && npm run backend:install",
     "preview": "vite preview"
   },
   "dependencies": {
