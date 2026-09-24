@@ -1,26 +1,24 @@
-import { useState, useEffect } from 'react'
-import { X, Download } from 'lucide-react'
-import { useExpense, getReceiptUrl } from '../../hooks/useExpenses'
+import { useState } from 'react'
+import { X, Download, ExternalLink, Calendar, Tag, CreditCard, User, Clock, CheckCircle2, XCircle, ShieldCheck } from 'lucide-react'
+import { useExpense } from '../../hooks/useExpenses'
 import { useExpenseApprovals } from '../../hooks/useApprovals'
 import { formatCurrency } from '../../lib/currency'
 import { format } from 'date-fns'
 
-export default function ExpenseDetailModal({ expenseId, onClose }) {
-  const { data: expense, isLoading } = useExpense(expenseId)
-  const { data: approvals } = useExpenseApprovals(expenseId)
-  const [receiptUrl, setReceiptUrl] = useState(null)
+export default function ExpenseDetailModal({ expense: propExpense, expenseId: propId, onClose }) {
+  const expenseId = propId || propExpense?._id || propExpense?.id
+  const { data: fetchedExpense, isLoading } = useExpense(expenseId)
+  const { data: fetchedApprovals } = useExpenseApprovals(expenseId)
 
-  useEffect(() => {
-    if (expense?.receipt_path) {
-      getReceiptUrl(expense.receipt_path).then(setReceiptUrl)
-    }
-  }, [expense])
+  const expense = fetchedExpense || propExpense
+  const approvals = fetchedApprovals || expense?.approvals || []
 
-  if (isLoading) {
+  if (!expense && isLoading) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="aw-card p-6 flex items-center gap-3">
+          <div className="h-5 w-5 border-2 border-[#fd366e] border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-mono text-zinc-300">Loading expense details...</span>
         </div>
       </div>
     )
@@ -28,202 +26,209 @@ export default function ExpenseDetailModal({ expenseId, onClose }) {
 
   if (!expense) return null
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      draft: 'bg-gray-100 text-gray-800',
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800'
-    }
-
-    return (
-      <span className={`px-3 py-1 text-sm font-medium rounded-full ${styles[status]}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    )
-  }
-
-  const getApprovalStatusBadge = (status) => {
-    const styles = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800',
-      skipped: 'bg-gray-100 text-gray-800'
-    }
-
-    return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[status]}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    )
-  }
+  const receiptUrl = expense.receiptPath || expense.receipt_path
+  const expDate = expense.dateOfExpense || expense.date_of_expense || expense.createdAt
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg max-w-4xl w-full my-8">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-semibold text-gray-900">Expense Details</h2>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="aw-card max-w-3xl w-full my-8 overflow-hidden shadow-2xl border-white/15 animate-fadeIn">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-white/[0.02]">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-[#fd366e]/15 border border-[#fd366e]/30 flex items-center justify-center text-[#fd366e]">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white font-display">Expense Submission Details</h2>
+              <p className="text-[11px] text-zinc-500 font-mono">ID: {expense._id || expense.id}</p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.05] transition"
           >
-            <X className="h-6 w-6" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Status */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-700">Status:</span>
-            {getStatusBadge(expense.status)}
-          </div>
-
-          {/* Basic Info */}
-          <div className="grid grid-cols-2 gap-6">
+        {/* Modal Content */}
+        <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+          {/* Status & Amount Highlight Banner */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
             <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Description
-              </label>
-              <p className="text-gray-900">{expense.description}</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Category
-              </label>
-              <p className="text-gray-900">{expense.category}</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Date of Expense
-              </label>
-              <p className="text-gray-900">
-                {format(new Date(expense.date_of_expense), 'MMMM dd, yyyy')}
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Submitted By
-              </label>
-              <p className="text-gray-900">{expense.created_by_profile?.full_name}</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Amount
-              </label>
-              <p className="text-gray-900 text-lg font-semibold">
-                {formatCurrency(expense.amount, expense.currency)}
-              </p>
-            </div>
-
-            {expense.amount_base && expense.currency !== expense.base_currency && (
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">
-                  Amount (Base Currency)
-                </label>
-                <p className="text-gray-900">
-                  {formatCurrency(expense.amount_base, expense.base_currency)}
-                </p>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">Total Claim</span>
+              <div className="flex items-baseline gap-3 mt-1">
+                <span className="text-2xl sm:text-3xl font-bold font-display text-white">
+                  {formatCurrency(expense.amount, expense.currency)}
+                </span>
+                {expense.currency !== (expense.baseCurrency || 'USD') && (
+                  <span className="text-xs font-mono text-zinc-400">
+                    ({formatCurrency(expense.amountBase, expense.baseCurrency || 'USD')} base)
+                  </span>
+                )}
               </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Payment Method
-              </label>
-              <p className="text-gray-900">{expense.paid_by}</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Submitted On
-              </label>
-              <p className="text-gray-900">
-                {format(new Date(expense.created_at), 'MMM dd, yyyy HH:mm')}
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block mb-1">
+                Status
+              </span>
+              {expense.status === 'approved' ? (
+                <span className="aw-badge-approved px-3 py-1 rounded-full text-xs font-mono font-semibold inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  Approved
+                </span>
+              ) : expense.status === 'rejected' ? (
+                <span className="aw-badge-rejected px-3 py-1 rounded-full text-xs font-mono font-semibold inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-rose-400" />
+                  Rejected
+                </span>
+              ) : (
+                <span className="aw-badge-pending px-3 py-1 rounded-full text-xs font-mono font-semibold inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-400" />
+                  Pending Review
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Rejection notice if present */}
+          {expense.rejectionReason && (
+            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+              <p className="font-semibold font-mono text-[11px] uppercase tracking-wider text-rose-400 mb-1">
+                Approver Feedback / Rejection Note:
+              </p>
+              <p>{expense.rejectionReason}</p>
+            </div>
+          )}
+
+          {/* Key Information Fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+              <span className="text-zinc-500 font-mono block mb-1">Description</span>
+              <p className="text-sm font-medium text-white">{expense.description}</p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+              <span className="text-zinc-500 font-mono block mb-1">Category & Merchant</span>
+              <p className="text-sm font-medium text-white">
+                {expense.category} {expense.merchant ? `• ${expense.merchant}` : ''}
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+              <span className="text-zinc-500 font-mono block mb-1">Date of Expense</span>
+              <p className="text-sm font-mono text-white">
+                {format(new Date(expDate), 'MMMM dd, yyyy')}
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+              <span className="text-zinc-500 font-mono block mb-1">Payment Method & Department</span>
+              <p className="text-sm text-white">
+                {expense.paidBy || 'Personal Card'} • {expense.department || 'General'}
               </p>
             </div>
           </div>
 
-          {/* Receipt */}
+          {/* Receipt Preview Section */}
           {receiptUrl && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Receipt
-              </label>
-              <div className="border border-gray-200 rounded-lg p-4">
-                <img
-                  src={receiptUrl}
-                  alt="Receipt"
-                  className="max-h-96 mx-auto rounded"
-                />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-semibold uppercase text-zinc-400">
+                  Attached Receipt
+                </span>
                 <a
                   href={receiptUrl}
-                  download
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-flex items-center text-sm text-primary-600 hover:text-primary-700"
+                  className="text-xs text-[#fd366e] font-mono hover:underline flex items-center gap-1"
                 >
-                  <Download className="h-4 w-4 mr-1" />
-                  Download Receipt
+                  <span>Open Full Size</span>
+                  <ExternalLink className="h-3 w-3" />
                 </a>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-[#0d0d10] p-4 overflow-hidden flex justify-center">
+                {receiptUrl.startsWith('data:application/pdf') ? (
+                  <div className="py-8 text-center">
+                    <p className="text-xs text-zinc-400 mb-2">PDF Document Attached</p>
+                    <a
+                      href={receiptUrl}
+                      download="receipt.pdf"
+                      className="aw-btn-secondary px-4 py-2 text-xs"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download PDF Receipt
+                    </a>
+                  </div>
+                ) : (
+                  <img
+                    src={receiptUrl}
+                    alt="Receipt proof"
+                    className="max-h-72 object-contain rounded-xl border border-white/10 shadow-md"
+                  />
+                )}
               </div>
             </div>
           )}
 
-          {/* Approval History */}
-          {approvals && approvals.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Approval History
-              </label>
+          {/* Approval Chain Timeline */}
+          <div>
+            <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-zinc-400 mb-3">
+              Approval Chain Timeline
+            </h3>
+
+            {approvals.length > 0 ? (
               <div className="space-y-3">
-                {approvals.map((approval, index) => (
+                {approvals.map((approval, idx) => (
                   <div
-                    key={approval.id}
-                    className="border border-gray-200 rounded-lg p-4"
+                    key={approval._id || idx}
+                    className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-gray-900">
-                            {approval.approver?.full_name}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            ({approval.approver?.role})
-                          </span>
-                          {getApprovalStatusBadge(approval.status)}
-                        </div>
-                        {approval.comment && (
-                          <p className="text-sm text-gray-600 mt-2">
-                            {approval.comment}
-                          </p>
-                        )}
-                        {approval.acted_at && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            {format(new Date(approval.acted_at), 'MMM dd, yyyy HH:mm')}
-                          </p>
-                        )}
+                    <div className="mt-0.5">
+                      {approval.status === 'approved' ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      ) : approval.status === 'rejected' ? (
+                        <XCircle className="h-4 w-4 text-rose-400" />
+                      ) : (
+                        <Clock className="h-4 w-4 text-amber-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-white">
+                          {approval.approverId?.fullName || approval.approver?.fullName || 'Assigned Approver'}
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-400 capitalize">
+                          {approval.status}
+                        </span>
                       </div>
-                      <span className="text-sm text-gray-500">
-                        Step {index + 1}
-                      </span>
+                      {approval.comment && (
+                        <p className="text-xs text-zinc-400 mt-1 italic">"{approval.comment}"</p>
+                      )}
+                      {approval.actedAt && (
+                        <p className="text-[10px] font-mono text-zinc-400 mt-1">
+                          Acted on {format(new Date(approval.actedAt), 'MMM dd, yyyy h:mm a')}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-zinc-400 font-mono">No approval records generated yet.</p>
+            )}
+          </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200">
+        {/* Modal Footer */}
+        <div className="px-6 py-4 border-t border-white/[0.08] bg-white/[0.02] flex justify-end">
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+            className="aw-btn-secondary px-5 py-2 text-xs font-medium"
           >
-            Close
+            Close Details
           </button>
         </div>
       </div>
