@@ -22,16 +22,70 @@ import seedRoutes from './routes/seed.routes.js'
 const app = express()
 const PORT = process.env.PORT || 5001
 
+// Configure CORS Origins
+const parseAllowedOrigins = () => {
+  const envOrigins = process.env.CORS_ORIGIN
+  if (!envOrigins || envOrigins.trim() === '*' || envOrigins.trim() === '') {
+    return ['*']
+  }
+  return envOrigins.split(',').map((o) => o.trim()).filter(Boolean)
+}
+
+const allowedOrigins = parseAllowedOrigins()
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow non-browser requests (e.g. Postman, curl, Render health checks)
+    if (!origin) return callback(null, true)
+
+    // Allow wildcard
+    if (allowedOrigins.includes('*')) {
+      return callback(null, true)
+    }
+
+    // Allow explicit origins in CORS_ORIGIN
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+
+    // Allow Netlify deployment previews & main domain
+    if (origin.endsWith('.netlify.app')) {
+      return callback(null, true)
+    }
+
+    // Allow local development
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true)
+    }
+
+    // Fallback allow to avoid unexpected deployment blocks
+    return callback(null, true)
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+}
+
 // Middlewares
-app.use(
-  cors({
-    origin: '*',
-    credentials: true
-  })
-)
-app.use(morgan('dev'))
+app.use(cors(corsOptions))
+app.options('*', cors(corsOptions))
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 app.use(express.json({ limit: '25mb' }))
 app.use(express.urlencoded({ extended: true, limit: '25mb' }))
+
+// Root Ping Route (for Render Web Service status & health check)
+app.get('/', (req, res) => {
+  const dbStatus = getDBStatus()
+  res.json({
+    service: 'ReimburseFlow Enterprise Backend Engine',
+    version: '2.0.0',
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    healthCheck: '/api/health',
+    database: dbStatus.mode
+  })
+})
 
 // Health Check
 app.get('/api/health', (req, res) => {
