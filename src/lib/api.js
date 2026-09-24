@@ -1,4 +1,15 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+// Resilient API base URL resolver (supports relative proxy, Render URL with/without /api, trailing slashes)
+const formatApiBaseUrl = () => {
+  const envUrl = (import.meta.env.VITE_API_URL || '').trim()
+  if (!envUrl) return '/api'
+  const trimmed = envUrl.replace(/\/+$/, '')
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`
+  }
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+}
+
+const API_BASE_URL = formatApiBaseUrl()
 
 export const getToken = () => localStorage.getItem('reimburseflow_token')
 export const setToken = (token) => localStorage.setItem('reimburseflow_token', token)
@@ -20,7 +31,8 @@ export const apiRequest = async (endpoint, options = {}) => {
     headers['Content-Type'] = 'application/json'
   }
 
-  const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+  const url = `${API_BASE_URL}${cleanEndpoint}`
 
   try {
     const response = await fetch(url, {
