@@ -5,6 +5,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  SECRETS_SCAN_OMIT_KEYS = "VITE_EXCHANGE_API_KEY,VITE_RESTCOUNTRIES_URL,VITE_API_URL"
+  SECRETS_SCAN_OMIT_PATHS = ".env.example,Docs/**,README.md"
 
 # SPA routing fallback for React Router
 [[redirects]]
