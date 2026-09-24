@@ -4,37 +4,64 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
+        aw: {
+          bg: '#09090b',
+          surface: '#0d0d10',
+          card: '#131316',
+          cardHover: '#18181c',
+          subtle: '#1c1c21',
+          border: 'rgba(255, 255, 255, 0.08)',
+          borderLight: 'rgba(255, 255, 255, 0.14)',
+          borderGlow: 'rgba(253, 54, 110, 0.4)',
+          pink: '#fd366e',
+          pinkHover: '#f02e65',
+          orange: '#fe9567',
+          amber: '#f99c00',
+          emerald: '#10b981',
+          blue: '#3080ff',
+          purple: '#818cf8',
+          textMuted: '#a1a1aa',
+          textBright: '#f4f4f5'
+        },
         primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
+          50: '#fff1f2',
+          100: '#ffe4e6',
+          200: '#fecdd3',
+          300: '#fda4af',
+          400: '#fb7185',
+          500: '#fd366e',
+          600: '#f02e65',
+          700: '#be123c',
+          800: '#9f1239',
+          900: '#881337',
         }
       },
       fontFamily: {
-        sans: ['Inter', 'Inter var', 'Segoe UI', 'system-ui', 'sans-serif'],
-        display: ['Space Grotesk', 'Inter', 'Segoe UI', 'system-ui', 'sans-serif']
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Space Grotesk', 'monospace'],
+        display: ['Space Grotesk', 'Inter', 'sans-serif']
       },
       boxShadow: {
-        brand: '0 20px 45px rgba(15, 23, 42, 0.15)',
-        card: '0 10px 35px rgba(15, 23, 42, 0.08)'
+        'aw-glow': '0 0 25px -4px rgba(253, 54, 110, 0.35)',
+        'aw-glow-card': '0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.08)',
+        'aw-glow-amber': '0 0 20px -4px rgba(249, 156, 0, 0.35)',
+        'aw-glow-emerald': '0 0 20px -4px rgba(16, 185, 129, 0.35)',
+        'aw-button': '0 4px 20px rgba(253, 54, 110, 0.4)'
       },
       backgroundImage: {
-        'mesh-primary': 'radial-gradient(circle at 20% 20%, rgba(14,165,233,0.35), transparent 45%), radial-gradient(circle at 80% 0%, rgba(129,140,248,0.25), transparent 40%), radial-gradient(circle at 0% 80%, rgba(16,185,129,0.25), transparent 40%)',
-        'grid-slate': 'linear-gradient(transparent 24px, rgba(15,23,42,.04) 25px), linear-gradient(90deg, transparent 24px, rgba(15,23,42,.04) 25px)'
+        'aw-gradient': 'linear-gradient(135deg, #fd366e 0%, #fe9567 100%)',
+        'aw-gradient-hover': 'linear-gradient(135deg, #f02e65 0%, #fd366e 100%)',
+        'aw-mesh': 'radial-gradient(circle at 10% 20%, rgba(253, 54, 110, 0.12), transparent 40%), radial-gradient(circle at 90% 10%, rgba(254, 149, 103, 0.1), transparent 35%), radial-gradient(circle at 50% 80%, rgba(129, 140, 248, 0.08), transparent 45%)',
+        'aw-grid': 'linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px)'
       },
       borderRadius: {
-        '3xl': '1.75rem',
-        '4xl': '2.5rem'
+        '2xl': '1rem',
+        '3xl': '1.5rem',
+        '4xl': '2rem'
       }
     },
   },
