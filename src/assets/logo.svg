@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="rf-glow-logo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fd366e" />
+      <stop offset="50%" stop-color="#f02e65" />
+      <stop offset="100%" stop-color="#fe9567" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#131316" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
+  <circle cx="32" cy="32" r="20" fill="#fd366e" opacity="0.22" />
+  <path d="M16 26C16 19.3726 21.3726 14 28 14H36C42.6274 14 48 19.3726 48 26C48 31 44.5 35 40 37L24 43C19.5 45 16 49 16 54" stroke="url(#rf-glow-logo)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="44" cy="44" r="5" fill="url(#rf-glow-logo)" />
+  <path d="M22 28L32 20L42 28" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />
+</svg>
