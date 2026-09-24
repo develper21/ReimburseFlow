@@ -10,13 +10,15 @@ import ApprovalsPage from './pages/ApprovalsPage'
 import AllExpensesPage from './pages/AllExpensesPage'
 import UsersPage from './pages/UsersPage'
 import RulesPage from './pages/RulesPage'
+import AnalyticsPage from './pages/AnalyticsPage'
+import AuditPage from './pages/AuditPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
-      staleTime: 5 * 60 * 1000
+      staleTime: 2 * 60 * 1000
     }
   }
 })
@@ -26,8 +28,9 @@ function ProtectedRoute({ children, allowedRoles }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center gap-3">
+        <div className="h-10 w-10 border-2 border-[#fd366e] border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-mono text-zinc-400">Authenticating session...</p>
       </div>
     )
   }
@@ -48,8 +51,9 @@ function PublicRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center gap-3">
+        <div className="h-10 w-10 border-2 border-[#fd366e] border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-mono text-zinc-400">Loading...</p>
       </div>
     )
   }
@@ -95,7 +99,7 @@ function AppRoutes() {
       <Route
         path="/expenses"
         element={
-          <ProtectedRoute allowedRoles={['employee', 'manager']}>
+          <ProtectedRoute allowedRoles={['employee', 'manager', 'admin']}>
             <ExpensesPage />
           </ProtectedRoute>
         }
@@ -120,6 +124,15 @@ function AppRoutes() {
       />
 
       <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute allowedRoles={['manager', 'admin']}>
+            <AnalyticsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/users"
         element={
           <ProtectedRoute allowedRoles={['admin']}>
@@ -137,14 +150,23 @@ function AppRoutes() {
         }
       />
 
-      {/* Default Route */}
+      <Route
+        path="/audit"
+        element={
+          <ProtectedRoute allowedRoles={['manager', 'admin']}>
+            <AuditPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Default Fallback Routes */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }
 
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
@@ -155,5 +177,3 @@ function App() {
     </QueryClientProvider>
   )
 }
-
-export default App
