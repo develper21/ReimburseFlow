@@ -1,67 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabaseClient'
+import { api } from '../lib/api'
 
 /**
- * Fetch pending approvals for a user
+ * Fetch pending approvals for current user
  */
 export const usePendingApprovals = (approverId) => {
   return useQuery({
     queryKey: ['approvals', 'pending', approverId],
     queryFn: async () => {
-      // First get approvals
-      const { data: approvals, error: approvalsError } = await supabase
-        .from('expense_approvals')
-        .select('*')
-        .eq('approver_id', approverId)
-        .eq('status', 'pending')
-        .order('acted_at', { ascending: false })
-
-      if (approvalsError) {
-        console.error('Error fetching approvals:', approvalsError)
-        throw approvalsError
-      }
-
-      if (!approvals || approvals.length === 0) {
-        return []
-      }
-
-      // Then get expenses for those approvals
-      const expenseIds = approvals.map(a => a.expense_id)
-      const { data: expenses, error: expensesError } = await supabase
-        .from('expenses')
-        .select('*')
-        .in('id', expenseIds)
-
-      if (expensesError) {
-        console.error('Error fetching expenses:', expensesError)
-        throw expensesError
-      }
-
-      // Get creator profiles
-      const creatorIds = expenses.map(e => e.created_by)
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', creatorIds)
-
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError)
-      }
-
-      // Combine data
-      const expenseMap = {}
-      expenses.forEach(expense => {
-        const creator = profiles?.find(p => p.id === expense.created_by)
-        expenseMap[expense.id] = {
-          ...expense,
-          created_by_profile: creator
-        }
-      })
-
-      return approvals.map(approval => ({
-        ...approval,
-        expense: expenseMap[approval.expense_id]
-      }))
+      const res = await api.get('/approvals/pending')
+      return res.data || []
     },
     enabled: !!approverId
   })
@@ -74,62 +22,45 @@ export const useExpenseApprovals = (expenseId) => {
   return useQuery({
     queryKey: ['approvals', 'expense', expenseId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('expense_approvals')
-        .select(`
-          *,
-          approver:profiles(full_name, role)
-        `)
-        .eq('expense_id', expenseId)
-        .order('sequence_index', { ascending: true })
-
-      if (error) throw error
-      return data
+      const res = await api.get(`/approvals/history/${expenseId}`)
+      return res.data || []
     },
     enabled: !!expenseId
   })
 }
 
 /**
- * Process approval (approve/reject)
+ * Process approval (approve or reject with comment)
  */
 export const useProcessApproval = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ expenseId, approverId, action, comment }) => {
-      const { data, error } = await supabase.rpc('process_approval', {
-        p_expense_id: expenseId,
-        p_approver_id: approverId,
-        p_action: action,
-        p_comment: comment
+    mutationFn: async ({ expenseId, action, comment }) => {
+      const res = await api.post('/approvals/process', {
+        expenseId,
+        action,
+        comment
       })
-
-      if (error) throw error
-      return data
+      return res.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approvals'] })
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['analytics'] })
     }
   })
 }
 
 /**
- * Fetch approval rules for a company
+ * Fetch approval rules for company
  */
 export const useApprovalRules = (companyId) => {
   return useQuery({
     queryKey: ['approval-rules', companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('approval_rules')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      return data
+      const res = await api.get('/rules')
+      return res.data || []
     },
     enabled: !!companyId
   })
@@ -143,14 +74,8 @@ export const useCreateApprovalRule = () => {
 
   return useMutation({
     mutationFn: async (ruleData) => {
-      const { data, error } = await supabase
-        .from('approval_rules')
-        .insert([ruleData])
-        .select()
-        .single()
-
-      if (error) throw error
-      return data
+      const res = await api.post('/rules', ruleData)
+      return res.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approval-rules'] })
@@ -166,15 +91,8 @@ export const useUpdateApprovalRule = () => {
 
   return useMutation({
     mutationFn: async ({ ruleId, updates }) => {
-      const { data, error } = await supabase
-        .from('approval_rules')
-        .update(updates)
-        .eq('id', ruleId)
-        .select()
-        .single()
-
-      if (error) throw error
-      return data
+      const res = await api.put(`/rules/${ruleId}`, updates)
+      return res.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approval-rules'] })
@@ -190,12 +108,8 @@ export const useDeleteApprovalRule = () => {
 
   return useMutation({
     mutationFn: async (ruleId) => {
-      const { error } = await supabase
-        .from('approval_rules')
-        .delete()
-        .eq('id', ruleId)
-
-      if (error) throw error
+      const res = await api.delete(`/rules/${ruleId}`)
+      return res
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approval-rules'] })
