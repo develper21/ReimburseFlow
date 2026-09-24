@@ -104,6 +104,8 @@ export const CURRENCIES = [
   { code: 'ZAR', name: 'South African Rand', symbol: 'R' }
 ]
 
+export const SUPPORTED_CURRENCIES = CURRENCIES
+
 /**
  * Get currency for a country
  * @param {string} countryName - Country name
