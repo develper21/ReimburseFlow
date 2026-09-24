@@ -1,5 +1,5 @@
 import { useState, useEffect, createContext, useContext } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { api, setToken, removeToken, getToken } from '../lib/api'
 
 const AuthContext = createContext({})
 
@@ -9,141 +9,115 @@ export const AuthProvider = ({ children }) => {
   const [company, setCompany] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Verify and load session on mount
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        loadProfile(session.user.id)
-      } else {
+    const initializeAuth = async () => {
+      const token = getToken()
+      if (!token) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        const response = await api.get('/auth/me')
+        if (response.success) {
+          setUser(response.user)
+          setProfile(response.user)
+          setCompany(response.company)
+        } else {
+          removeToken()
+        }
+      } catch (err) {
+        console.warn('Session verification failed, logging out:', err.message)
+        removeToken()
+      } finally {
         setLoading(false)
       }
-    })
+    }
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        loadProfile(session.user.id)
-      } else {
-        setProfile(null)
-        setCompany(null)
-        setLoading(false)
-      }
-    })
-
-    return () => subscription.unsubscribe()
+    initializeAuth()
   }, [])
 
-  const loadProfile = async (userId) => {
+  // Sign Up
+  const signUp = async (email, password, fullName, companyName, country, baseCurrency) => {
     try {
-      // Get profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
+      setLoading(true)
+      const res = await api.post('/auth/register', {
+        email,
+        password,
+        fullName,
+        companyName,
+        country: country || 'United States',
+        baseCurrency: baseCurrency || 'USD'
+      })
 
-      if (profileError) throw profileError
-
-      setProfile(profileData)
-
-      // Get company
-      if (profileData?.company_id) {
-        const { data: companyData, error: companyError } = await supabase
-          .from('companies')
-          .select('*')
-          .eq('id', profileData.company_id)
-          .single()
-
-        if (companyError) throw companyError
-        setCompany(companyData)
+      if (res.success && res.token) {
+        setToken(res.token)
+        setUser(res.user)
+        setProfile(res.user)
+        setCompany(res.company)
+        return { success: true }
       }
+      return { success: false, error: res.message || 'Registration failed' }
     } catch (error) {
-      console.error('Error loading profile:', error)
+      console.error('Sign up error:', error)
+      return { success: false, error: error.message }
     } finally {
       setLoading(false)
     }
   }
 
-  const signUp = async (email, password, fullName, companyName, country, baseCurrency) => {
-    try {
-      console.log('Starting signup process...')
-      console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL)
-      
-      // Sign up user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password
-      })
-
-      console.log('Auth response:', { authData, authError })
-
-      if (authError) throw authError
-
-      const userId = authData.user.id
-      console.log('User created with ID:', userId)
-
-      // Create company
-      const { data: companyData, error: companyError } = await supabase
-        .from('companies')
-        .insert([{
-          name: companyName,
-          country,
-          base_currency: baseCurrency
-        }])
-        .select()
-        .single()
-
-      console.log('Company response:', { companyData, companyError })
-
-      if (companyError) throw companyError
-
-      // Create profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([{
-          id: userId,
-          full_name: fullName,
-          role: 'admin',
-          company_id: companyData.id
-        }])
-
-      console.log('Profile response:', { profileError })
-
-      if (profileError) throw profileError
-
-      return { success: true }
-    } catch (error) {
-      console.error('Signup error:', error)
-      return { success: false, error: error.message }
-    }
-  }
-
+  // Sign In with email & password
   const signIn = async (email, password) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
+      setLoading(true)
+      const res = await api.post('/auth/login', { email, password })
 
-      if (error) throw error
-      return { success: true }
+      if (res.success && res.token) {
+        setToken(res.token)
+        setUser(res.user)
+        setProfile(res.user)
+        setCompany(res.company)
+        return { success: true }
+      }
+      return { success: false, error: res.message || 'Invalid credentials' }
     } catch (error) {
       console.error('Sign in error:', error)
       return { success: false, error: error.message }
+    } finally {
+      setLoading(false)
     }
   }
 
-  const signOut = async () => {
+  // 1-Click Demo Sign In for Testing
+  const demoSignIn = async (role = 'admin') => {
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-      return { success: true }
+      setLoading(true)
+      const res = await api.post('/auth/demo-login', { role })
+
+      if (res.success && res.token) {
+        setToken(res.token)
+        setUser(res.user)
+        setProfile(res.user)
+        setCompany(res.company)
+        return { success: true }
+      }
+      return { success: false, error: res.message }
     } catch (error) {
-      console.error('Sign out error:', error)
+      console.error('Demo sign in error:', error)
       return { success: false, error: error.message }
+    } finally {
+      setLoading(false)
     }
+  }
+
+  // Sign Out
+  const signOut = async () => {
+    removeToken()
+    setUser(null)
+    setProfile(null)
+    setCompany(null)
+    return { success: true }
   }
 
   const value = {
@@ -153,6 +127,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     signUp,
     signIn,
+    demoSignIn,
     signOut,
     isAdmin: profile?.role === 'admin',
     isManager: profile?.role === 'manager',
