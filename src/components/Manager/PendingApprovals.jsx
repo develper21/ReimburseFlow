@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { CheckCircle, XCircle, Eye } from 'lucide-react'
-import { usePendingApprovals, useProcessApproval } from '../../hooks/useApprovals'
+import { CheckCircle2, XCircle, Eye, Clock, ShieldCheck, User, Calendar, Receipt } from 'lucide-react'
+import { usePendingApprovals } from '../../hooks/useApprovals'
 import { useAuth } from '../../hooks/useAuth'
 import { formatCurrency } from '../../lib/currency'
 import { format } from 'date-fns'
@@ -9,25 +9,28 @@ import ExpenseDetailModal from '../Shared/ExpenseDetailModal'
 
 export default function PendingApprovals() {
   const { profile } = useAuth()
-  const { data: approvals, isLoading } = usePendingApprovals(profile?.id)
+  const { data: approvals, isLoading } = usePendingApprovals(profile?.id || profile?._id)
   const [selectedApproval, setSelectedApproval] = useState(null)
-  const [selectedExpenseId, setSelectedExpenseId] = useState(null)
+  const [selectedExpense, setSelectedExpense] = useState(null)
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      <div className="flex flex-col justify-center items-center h-64 gap-3">
+        <div className="h-8 w-8 border-2 border-[#fd366e] border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-mono text-zinc-500">Checking pending approvals queue...</p>
       </div>
     )
   }
 
   if (!approvals || approvals.length === 0) {
     return (
-      <div className="text-center py-12">
-        <CheckCircle className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No pending approvals</h3>
-        <p className="mt-1 text-sm text-gray-500">
-          All caught up! No expenses waiting for your approval.
+      <div className="aw-card p-12 text-center">
+        <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center mb-3">
+          <CheckCircle2 className="h-6 w-6" />
+        </div>
+        <h3 className="text-sm font-semibold text-white">Approvals Queue is Clear</h3>
+        <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
+          All team expense submissions have been reviewed. When new claims arrive, they will appear here.
         </p>
       </div>
     )
@@ -36,71 +39,89 @@ export default function PendingApprovals() {
   return (
     <>
       <div className="space-y-4">
+        <div className="flex items-center justify-between text-xs font-mono text-zinc-400 pb-1">
+          <span>{approvals.length} submissions awaiting your review</span>
+          <span className="text-[#f99c00]">Decision Required</span>
+        </div>
+
         {approvals.map((approval) => {
           const expense = approval.expense
+          if (!expense) return null
+
+          const expDate = expense.dateOfExpense || expense.date_of_expense || expense.createdAt
+          const submitter = expense.createdBy || expense.created_by_profile
+
           return (
             <div
-              key={approval.id}
-              className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+              key={approval._id || approval.id}
+              className="aw-card p-5 hover:border-white/20 transition-all duration-200"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <span className="aw-badge-pending px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium inline-flex items-center gap-1.5 shrink-0">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400 glow-dot-amber" />
+                      Pending Approval
+                    </span>
+                    <h3 className="text-sm font-semibold text-white truncate font-display">
                       {expense.description}
                     </h3>
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                      Pending
-                    </span>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
                     <div>
-                      <span className="text-gray-500">Submitted by:</span>
-                      <p className="font-medium text-gray-900">
-                        {expense.created_by_profile?.full_name}
+                      <span className="text-zinc-500 font-mono text-[11px] block">Submitted By</span>
+                      <p className="font-medium text-white truncate">
+                        {submitter?.fullName || submitter?.full_name || 'Team Member'}
                       </p>
                     </div>
+
                     <div>
-                      <span className="text-gray-500">Date:</span>
-                      <p className="font-medium text-gray-900">
-                        {format(new Date(expense.date_of_expense), 'MMM dd, yyyy')}
+                      <span className="text-zinc-500 font-mono text-[11px] block">Expense Date</span>
+                      <p className="font-mono text-zinc-300">
+                        {format(new Date(expDate), 'MMM dd, yyyy')}
                       </p>
                     </div>
+
                     <div>
-                      <span className="text-gray-500">Category:</span>
-                      <p className="font-medium text-gray-900">{expense.category}</p>
+                      <span className="text-zinc-500 font-mono text-[11px] block">Category</span>
+                      <p className="text-zinc-300 truncate">{expense.category}</p>
                     </div>
+
                     <div>
-                      <span className="text-gray-500">Amount:</span>
-                      <p className="font-medium text-gray-900">
+                      <span className="text-zinc-500 font-mono text-[11px] block">Claim Amount</span>
+                      <p className="font-mono font-bold text-white">
                         {formatCurrency(expense.amount, expense.currency)}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-2 ml-4">
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 pt-3 lg:pt-0 border-t lg:border-t-0 border-white/[0.06] shrink-0">
                   <button
-                    onClick={() => setSelectedExpenseId(expense.id)}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md"
-                    title="View Details"
+                    onClick={() => setSelectedExpense(expense)}
+                    className="aw-btn-secondary px-3 py-2 text-xs"
+                    title="Inspect details and receipt"
                   >
-                    <Eye className="h-5 w-5" />
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Inspect</span>
                   </button>
+
                   <button
                     onClick={() => setSelectedApproval({ ...approval, action: 'approved' })}
-                    className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md"
-                    title="Approve"
+                    className="px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition"
                   >
-                    <CheckCircle className="h-5 w-5" />
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Approve</span>
                   </button>
+
                   <button
                     onClick={() => setSelectedApproval({ ...approval, action: 'rejected' })}
-                    className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md"
-                    title="Reject"
+                    className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-1.5 transition"
                   >
-                    <XCircle className="h-5 w-5" />
+                    <XCircle className="h-3.5 w-3.5" />
+                    <span>Reject</span>
                   </button>
                 </div>
               </div>
@@ -109,6 +130,7 @@ export default function PendingApprovals() {
         })}
       </div>
 
+      {/* Decision Confirmation Modal */}
       {selectedApproval && (
         <ApprovalModal
           approval={selectedApproval}
@@ -116,10 +138,11 @@ export default function PendingApprovals() {
         />
       )}
 
-      {selectedExpenseId && (
+      {/* Expense Detail Viewer */}
+      {selectedExpense && (
         <ExpenseDetailModal
-          expenseId={selectedExpenseId}
-          onClose={() => setSelectedExpenseId(null)}
+          expense={selectedExpense}
+          onClose={() => setSelectedExpense(null)}
         />
       )}
     </>
