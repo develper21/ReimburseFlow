@@ -1,0 +1,583 @@
+{
+	"info": {
+		"_postman_id": "e2a9c4d1-8f3b-4c7e-9d2a-5b6c7d8e9f0a",
+		"name": "ReimburseFlow API — Server",
+		"description": "Complete API collection for the ReimburseFlow Express + MongoDB backend, pointing **directly** at the server (no Vite proxy).\n\n## Environments\n- `baseUrl` — default `http://localhost:5001/api` (server port from `server/.env`).\n\n## Auth Flow\n1. Run **Seed → Seed Demo Data** once (or start the server — it auto-seeds).\n2. Run **Auth → Login** or **Demo Login** — the token auto-saves into the `token` collection variable.\n3. Protected requests automatically send `Authorization: Bearer {{token}}`.\n\n## Role Matrix\n| Route group | Employee | Manager | Admin |\n|---|---|---|---|\n| Expenses (my/create/delete) | ✅ | ✅ | ✅ |\n| Expenses (company/export) | ❌ | ✅ | ✅ |\n| Approvals (pending/process) | ❌ | ✅ | ✅ |\n| Rules / Users / Budgets (write) | ❌ | ❌ | ✅ |\n\n## Conventions\nAll responses follow `{ success, message?, count?, data }`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{ "key": "baseUrl", "value": "http://localhost:5001/api" },
+		{ "key": "token", "value": "" },
+		{ "key": "email", "value": "admin@reimburseflow.com" },
+		{ "key": "password", "value": "password123" }
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+	},
+	"item": [
+		{
+			"name": "Health",
+			"item": [
+				{
+					"name": "Root Ping",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5001/",
+							"host": ["http://localhost:5001"],
+							"path": ["", ""]
+						},
+						"description": "Direct ping of the Express root (no auth). Used by Render health checks."
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/health",
+						"description": "`GET /api/health` — returns `{ status, timestamp, service, port, database }`."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register (Create Company + Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const res = pm.response.json();",
+									"if (res.token) pm.collectionVariables.set('token', res.token);",
+									"pm.test('201 Created', () => pm.expect(pm.response.code).to.eql(201));",
+									"pm.test('Has token & admin role', () => {",
+									"  pm.expect(res.success).to.eql(true);",
+									"  pm.expect(res.user.role).to.eql('admin');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"newadmin@reimburseflow.com\",\n  \"password\": \"password123\",\n  \"fullName\": \"Narvin Admin\",\n  \"companyName\": \"Acme Corp\",\n  \"country\": \"India\",\n  \"baseCurrency\": \"INR\"\n}"
+						},
+						"url": "{{baseUrl}}/auth/register",
+						"description": "`POST /api/auth/register` — creates company + admin user in one call. Required: `email`, `password`, `fullName`, `companyName`.\n\n**400** if missing fields or email exists."
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const res = pm.response.json();",
+									"if (res.token) pm.collectionVariables.set('token', res.token);",
+									"pm.test('200 OK + token', () => {",
+									"  pm.expect(pm.response.code).to.eql(200);",
+									"  pm.expect(res.token).to.be.a('string');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+						},
+						"url": "{{baseUrl}}/auth/login",
+						"description": "`POST /api/auth/login` — returns `{ token, user, company }`.\n\n**401** for wrong credentials."
+					},
+					"response": []
+				},
+				{
+					"name": "Demo Login (admin | manager | employee)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const res = pm.response.json();",
+									"if (res.token) pm.collectionVariables.set('token', res.token);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"role\": \"admin\"\n}"
+						},
+						"url": "{{baseUrl}}/auth/demo-login",
+						"description": "`POST /api/auth/demo-login` — `{ \"role\": \"admin\" | \"manager\" | \"employee\" }` → token for that demo user."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Me (Session)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/auth/me",
+						"description": "`GET /api/auth/me` — current user + company from Bearer token.\n\n**401** without/with invalid token."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Expenses",
+			"item": [
+				{
+					"name": "My Expenses",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/expenses/my",
+						"description": "`GET /api/expenses/my` — expenses of the logged-in user. `{ success, count, data }`."
+					},
+					"response": []
+				},
+				{
+					"name": "Company Expenses (admin/manager)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/expenses/company?status=&category=&search=",
+							"host": ["{{baseUrl}}"],
+							"query": [
+								{ "key": "status", "value": "", "description": "draft | pending | approved | rejected | reimbursed" },
+								{ "key": "category", "value": "", "description": "e.g. Travel" },
+								{ "key": "search", "value": "", "description": "free-text" }
+							]
+						},
+						"description": "`GET /api/expenses/company` — all company expenses. Roles: admin, manager."
+					},
+					"response": []
+				},
+				{
+					"name": "Export CSV",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/expenses/export?format=csv",
+						"description": "`GET /api/expenses/export?format=csv` — CSV attachment `reimburseflow_expenses.csv`. Roles: admin, manager."
+					},
+					"response": []
+				},
+				{
+					"name": "Export JSON",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/expenses/export?format=json",
+						"description": "`GET /api/expenses/export?format=json` — JSON attachment. Roles: admin, manager."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Expense by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/expenses/:id",
+						"description": "`GET /api/expenses/:id` — single expense.\n\n**404** if not found."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Expense",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const res = pm.response.json();",
+									"if (res.data && res.data._id) pm.collectionVariables.set('expenseId', res.data._id);",
+									"pm.test('201 Created', () => pm.expect(pm.response.code).to.eql(201));",
+									"pm.test('Status is pending', () => pm.expect(res.data.status).to.eql('pending'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"Client meeting lunch\",\n  \"category\": \"Meals & Entertainment\",\n  \"dateOfExpense\": \"2026-10-01\",\n  \"amount\": 1250,\n  \"currency\": \"INR\",\n  \"amountBase\": 15,\n  \"baseCurrency\": \"USD\",\n  \"exchangeRate\": 83.3,\n  \"paidBy\": \"Personal Card\",\n  \"merchant\": \"Barbeque Nation\",\n  \"department\": \"Sales\",\n  \"receiptPath\": null,\n  \"receiptName\": null,\n  \"approvalRuleId\": null\n}"
+						},
+						"url": "{{baseUrl}}/expenses",
+						"description": "`POST /api/expenses` — submit expense (status → `pending`) + audit log. Required: `description`, `category`, `amount`. Optional: `currency` (default USD), `paidBy`, `merchant`, `department`, `receiptPath`, `approvalRuleId`.\n\n**400** if required fields missing. Saves `expenseId`."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Expense",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": "{{baseUrl}}/expenses/:id",
+						"description": "`DELETE /api/expenses/:id` — delete expense."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Approvals",
+			"item": [
+				{
+					"name": "Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/approvals/pending",
+						"description": "`GET /api/approvals/pending` — queue for current approver. Roles: admin, manager."
+					},
+					"response": []
+				},
+				{
+					"name": "Process Approval — Approve",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"expenseId\": \"{{expenseId}}\",\n  \"action\": \"approved\",\n  \"comment\": \"Within policy — approved\"\n}"
+						},
+						"url": "{{baseUrl}}/approvals/process",
+						"description": "`POST /api/approvals/process` — `{ expenseId, action: 'approved', comment }`.\n\n**400** if `expenseId`/`action` missing."
+					},
+					"response": []
+				},
+				{
+					"name": "Process Approval — Reject",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"expenseId\": \"{{expenseId}}\",\n  \"action\": \"rejected\",\n  \"comment\": \"Missing receipt — please re-submit\"\n}"
+						},
+						"url": "{{baseUrl}}/approvals/process",
+						"description": "`POST /api/approvals/process` with `action: 'rejected'`. Rejection reason is stored on the expense."
+					},
+					"response": []
+				},
+				{
+					"name": "Approval History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/approvals/history/:expenseId",
+						"description": "`GET /api/approvals/history/:expenseId` — full decision trail."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Rules",
+			"item": [
+				{
+					"name": "List Rules",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/rules",
+						"description": "`GET /api/rules` — company approval rules (any authenticated user)."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Rule — Percentage",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Consensus Rule\",\n  \"description\": \"60% of approvers must approve\",\n  \"ruleType\": \"percentage\",\n  \"isManagerApprover\": true,\n  \"approverIds\": [],\n  \"sequenceOrder\": true,\n  \"percentageRequired\": 60,\n  \"minAmount\": 0,\n  \"maxAmount\": null,\n  \"isDefault\": true\n}"
+						},
+						"url": "{{baseUrl}}/rules",
+						"description": "`POST /api/rules` — `ruleType: 'percentage'`. Role: admin."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Rule — Specific Approver",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"CFO Sign-off\",\n  \"description\": \"CFO must approve large claims\",\n  \"ruleType\": \"specific\",\n  \"isManagerApprover\": false,\n  \"approverIds\": [],\n  \"specificApprover\": null,\n  \"sequenceOrder\": true,\n  \"minAmount\": 50000,\n  \"isDefault\": false\n}"
+						},
+						"url": "{{baseUrl}}/rules",
+						"description": "`POST /api/rules` — `ruleType: 'specific'`; set `specificApprover` to a user id. Role: admin."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Rule — Hybrid",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Large Expense Rule\",\n  \"description\": \"CFO OR 75% consensus\",\n  \"ruleType\": \"hybrid\",\n  \"isManagerApprover\": true,\n  \"approverIds\": [],\n  \"sequenceOrder\": true,\n  \"percentageRequired\": 75,\n  \"specificApprover\": null,\n  \"minAmount\": 10000,\n  \"isDefault\": false\n}"
+						},
+						"url": "{{baseUrl}}/rules",
+						"description": "`POST /api/rules` — `ruleType: 'hybrid'` combines percentage + specific approver. Role: admin."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Rule",
+					"request": {
+						"method": "PUT",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"percentageRequired\": 75\n}"
+						},
+						"url": "{{baseUrl}}/rules/:id",
+						"description": "`PUT /api/rules/:id` — partial update. Role: admin."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Rule",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": "{{baseUrl}}/rules/:id",
+						"description": "`DELETE /api/rules/:id`. Role: admin."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "List Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/users",
+						"description": "`GET /api/users` — all company users."
+					},
+					"response": []
+				},
+				{
+					"name": "List Managers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/users/managers",
+						"description": "`GET /api/users/managers` — managers for assignment dropdowns."
+					},
+					"response": []
+				},
+				{
+					"name": "Create User (Manager)",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"manager@reimburseflow.com\",\n  \"password\": \"password123\",\n  \"fullName\": \"Mohan Manager\",\n  \"role\": \"manager\",\n  \"managerId\": null,\n  \"department\": \"Finance\",\n  \"spendingLimit\": 20000\n}"
+						},
+						"url": "{{baseUrl}}/users",
+						"description": "`POST /api/users` — create manager/employee. Role: admin."
+					},
+					"response": []
+				},
+				{
+					"name": "Create User (Employee)",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"employee@reimburseflow.com\",\n  \"password\": \"password123\",\n  \"fullName\": \"Esha Employee\",\n  \"role\": \"employee\",\n  \"managerId\": null,\n  \"department\": \"Engineering\",\n  \"spendingLimit\": 5000\n}"
+						},
+						"url": "{{baseUrl}}/users",
+						"description": "`POST /api/users` — employee variant. Role: admin."
+					},
+					"response": []
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"role\": \"manager\",\n  \"department\": \"Finance\",\n  \"spendingLimit\": 10000\n}"
+						},
+						"url": "{{baseUrl}}/users/:id",
+						"description": "`PUT /api/users/:id` — update role/department/manager/status. Role: admin."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": "{{baseUrl}}/users/:id",
+						"description": "`DELETE /api/users/:id`. Role: admin."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Budgets",
+			"item": [
+				{
+					"name": "List Budgets",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/budgets",
+						"description": "`GET /api/budgets` — department budgets + utilization."
+					},
+					"response": []
+				},
+				{
+					"name": "Upsert Budget",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"department\": \"Engineering\",\n  \"monthlyBudget\": 250000,\n  \"currency\": \"USD\"\n}"
+						},
+						"url": "{{baseUrl}}/budgets",
+						"description": "`POST /api/budgets` — upsert department monthly budget. Role: admin."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Analytics",
+			"item": [
+				{
+					"name": "Overview",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/analytics/overview",
+						"description": "`GET /api/analytics/overview` — dashboard aggregates."
+					},
+					"response": []
+				},
+				{
+					"name": "Audit Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/analytics/audit",
+						"description": "`GET /api/analytics/audit` — company activity trail."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Upload",
+			"item": [
+				{
+					"name": "Upload Receipt",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"type": "file",
+									"key": "receipt",
+									"src": [],
+									"description": "JPEG/JPG/PNG/WebP/PDF, max 10MB"
+								}
+							]
+						},
+						"url": "{{baseUrl}}/upload",
+						"description": "`POST /api/upload` — multipart, field `receipt`. Returns Base64 data URI in `data.url` (use as `receiptPath` in Create Expense).\n\n**400** if no file / wrong type."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Seed",
+			"item": [
+				{
+					"name": "Seed Demo Data",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": { "mode": "raw", "raw": "{}" },
+						"url": "{{baseUrl}}/seed",
+						"description": "`POST /api/seed` — seeds demo company + 3 users + sample expenses (no auth). Run first!"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Error Reference",
+			"item": [
+				{
+					"name": "404 — Unknown Route",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/does-not-exist"
+					},
+					"response": []
+				},
+				{
+					"name": "401 — No/Invalid Token (negative test)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/expenses/my",
+						"description": "Run without token → expect `401`."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
