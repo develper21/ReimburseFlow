@@ -61,9 +61,9 @@ export function parseDate(text) {
   // Patterns for various date formats
   const patterns = [
     // DD/MM/YYYY or DD-MM-YYYY
-    /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/,
+    /\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/,
     // YYYY/MM/DD or YYYY-MM-DD
-    /\b(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\b/,
+    /\b(\d{4})[/-](\d{1,2})[/-](\d{1,2})\b/,
     // DD Mon YYYY (e.g., 15 Jan 2024)
     /\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})\b/i
   ]
@@ -76,7 +76,7 @@ export function parseDate(text) {
   for (const pattern of patterns) {
     const match = text.match(pattern)
     if (match) {
-      if (match[0].includes('Jan') || match[0].includes('Feb')) {
+      if (/[a-z]/i.test(match[2])) {
         // DD Mon YYYY format
         const day = match[1].padStart(2, '0')
         const month = monthMap[match[2].toLowerCase().substring(0, 3)]
