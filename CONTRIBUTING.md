@@ -80,14 +80,19 @@ Prefixes:
 
 ### Run Tests
 ```bash
-# Unit tests
+# Frontend unit tests
 npm test
+
+# Backend API tests
+npm --prefix server test
 
 # E2E tests
 npm run test:e2e
 
-# Coverage
-npm run test:coverage
+# Lint and build both applications
+npm run lint
+npm run build
+npm --prefix server run build
 ```
 
 ### Writing Tests
