@@ -6,7 +6,9 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "build": "echo 'Server ready'",
+    "build": "node --check src/server.js",
+    "lint": "npm --prefix .. run lint:backend",
+    "test": "node --test tests/*.test.js",
     "dev": "node --watch src/server.js"
   },
   "dependencies": {
